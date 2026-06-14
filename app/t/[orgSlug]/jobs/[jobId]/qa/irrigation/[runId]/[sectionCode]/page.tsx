@@ -1,15 +1,20 @@
 'use client';
 
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { QaSectionEvidenceSummary } from '@/components/QaSectionEvidenceSummary';
+import { QaSectionHeader } from '@/components/QaSectionHeader';
+import { QaSectionStateBanner } from '@/components/QaSectionStateBanner';
+import { QaSectionSubmitBar } from '@/components/QaSectionSubmitBar';
 import { getIrrigationSectionDefinition, isIrrigationSectionCode, type IrrigationCatalogueItem, type IrrigationSectionCode } from '@/lib/irrigation-qa-v1-catalog';
 import type { IrrigationSectionUiState } from '@/lib/irrigation-qa-v1-graph';
 import { compressImagesForUpload } from '@/lib/client-image-compression';
+import { computeQaSectionEvidenceSummary } from '@/lib/qa-section-display';
 import { submitQaSectionWithPhotos } from '@/lib/qa-section-submit-client';
 
 type Answers = Record<string, { result: string; note: string }>;
 type PhotoRow = { id: string; item_key: string; content_type: string; created_at: string | null; signed_url: string | null };
+type JobContext = { name?: string | null; cc_project_title_snapshot?: string | null };
 
 function SavedPhotos({ photos }: { photos: PhotoRow[] }) {
   if (photos.length === 0) return null;
@@ -123,6 +128,7 @@ export default function IrrigationQaSectionPage() {
   const items = useMemo(() => def?.items ?? [], [def]);
 
   const [sectionState, setSectionState] = useState<IrrigationSectionUiState | null>(null);
+  const [job, setJob] = useState<JobContext | null>(null);
   const [runStatus, setRunStatus] = useState('');
   const [answers, setAnswers] = useState<Answers>({});
   const [photoFiles, setPhotoFiles] = useState<Record<string, File[]>>({});
@@ -137,6 +143,16 @@ export default function IrrigationQaSectionPage() {
   const isReadOnly = runStatus !== 'active';
   const isBlocked = sectionState?.status === 'blocked_by_unresolved_issue';
   const canSubmit = Boolean(sectionCode && !isReadOnly && !isBlocked);
+  const evidenceSummary = useMemo(
+    () =>
+      computeQaSectionEvidenceSummary({
+        items,
+        answers,
+        photosByItem,
+        photoFiles,
+      }),
+    [items, answers, photosByItem, photoFiles]
+  );
 
   useEffect(() => () => {
     for (const url of createdUrlsRef.current) URL.revokeObjectURL(url);
@@ -154,6 +170,7 @@ export default function IrrigationQaSectionPage() {
           setError(typeof d?.message === 'string' ? d.message : 'Failed to load section');
           return;
         }
+        setJob(d.job && typeof d.job === 'object' ? (d.job as JobContext) : null);
         setRunStatus(String(d.run?.status ?? ''));
         const state = Array.isArray(d.sectionStates)
           ? (d.sectionStates as IrrigationSectionUiState[]).find((s) => s.code === sectionCode) ?? null
@@ -244,20 +261,27 @@ export default function IrrigationQaSectionPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-xl mx-auto">
-        <Link href={`/t/${orgSlug}/jobs/${jobId}/qa/irrigation/${runId}`} className="text-sm text-[#698F00] hover:underline">
-          ← Run overview
-        </Link>
-        <h1 className="mt-2 text-xl font-bold text-gray-900">{def.title}</h1>
-        <p className="text-sm text-gray-500 mt-1">{def.description}</p>
-        {def.beforeCover && <p className="mt-2 text-xs font-medium text-amber-800">Before-cover hold point</p>}
+        <QaSectionHeader
+          backHref={`/t/${orgSlug}/jobs/${jobId}/qa/irrigation/${runId}`}
+          job={job}
+          qaType="irrigation"
+          sectionTitle={def.title}
+          sectionDescription={def.description}
+        />
 
         {loading && <p className="mt-4 text-gray-600">Loading…</p>}
-        {isReadOnly && !loading && <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm">This run is {runStatus || 'not active'}; evidence is read-only.</div>}
-        {isBlocked && sectionState?.blockedBy && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-            <p className="font-semibold mb-1">This section is blocked:</p>
-            <ul className="list-disc pl-4">{sectionState.blockedBy.map((b) => <li key={`${b.section}:${b.reason}`}>{b.reason}</li>)}</ul>
-          </div>
+        {!loading && (
+          <>
+            <QaSectionStateBanner
+              sectionStatus={sectionState?.status}
+              runStatus={runStatus}
+              isReadOnly={isReadOnly}
+              isBlocked={isBlocked}
+              blockedBy={sectionState?.blockedBy}
+              beforeCover={def.beforeCover}
+            />
+            <QaSectionEvidenceSummary summary={evidenceSummary} />
+          </>
         )}
         {saved && <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-medium">Evidence saved; returning to run overview…</div>}
         {error && <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm space-y-1">{error.split('\n').map((line, i) => <p key={i}>{line}</p>)}</div>}
@@ -277,9 +301,13 @@ export default function IrrigationQaSectionPage() {
                 onFiles={(files) => addFiles(item.key, files)}
               />
             ))}
-            <button type="submit" disabled={saving || !canSubmit} className="w-full bg-[#698F00] text-white py-2 rounded-lg font-medium disabled:bg-gray-400">
-              {saving ? 'Saving…' : 'Submit section evidence'}
-            </button>
+            <QaSectionSubmitBar
+              saving={saving}
+              canSubmit={canSubmit}
+              isReadOnly={isReadOnly}
+              isBlocked={isBlocked}
+              runStatus={runStatus}
+            />
           </form>
         )}
       </div>
