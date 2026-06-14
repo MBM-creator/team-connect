@@ -17,6 +17,7 @@ import {
   resolveQaSectionCardTone,
 } from '@/lib/qa-section-card-style';
 import { QaSectionCard } from '@/components/QaSectionCard';
+import { QaSectionCompleteActions } from '@/components/QaSectionCompleteActions';
 
 interface JobContext {
   cc_project_id?: string | null;
@@ -35,6 +36,7 @@ export default function PavingQaRunOverviewPage() {
   const [sectionStates, setSectionStates] = useState<V2SectionUiState[]>([]);
   const [job, setJob] = useState<JobContext | null>(null);
   const [runStatus, setRunStatus] = useState<string>('');
+  const [supervisorFinalApprovedAt, setSupervisorFinalApprovedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +53,7 @@ export default function PavingQaRunOverviewPage() {
         }
         setJob(d.job && typeof d.job === 'object' ? d.job : null);
         setRunStatus(String(d.run?.status ?? ''));
+        setSupervisorFinalApprovedAt(d.run?.supervisor_final_approved_at ?? null);
         if (d.setup && typeof d.setup === 'object') {
           setSetup(d.setup as PavingQaSetupV2);
         }
@@ -104,6 +107,7 @@ export default function PavingQaRunOverviewPage() {
             orgSlug={orgSlug}
             jobId={jobId}
             runId={runId}
+            supervisorFinalApprovedAt={supervisorFinalApprovedAt}
           />
         )}
       </div>
@@ -130,15 +134,20 @@ function V2RunOverview({
   orgSlug,
   jobId,
   runId,
+  supervisorFinalApprovedAt,
 }: {
   setup: PavingQaSetupV2;
   sectionStates: V2SectionUiState[];
   orgSlug: string;
   jobId: string;
   runId: string;
+  supervisorFinalApprovedAt: string | null;
 }) {
   const otherMixed = isOtherMixedMethod(setup);
   const activeSectionCode = findActiveQaSectionCode(sectionStates, (s) => s.code);
+  const allSectionsCleared =
+    sectionStates.length > 0 && sectionStates.every((section) => section.cleared);
+  const qaHubHref = `/t/${orgSlug}/jobs/${jobId}/qa`;
 
   return (
     <div className="mt-6 space-y-4">
@@ -267,20 +276,15 @@ function V2RunOverview({
         </ul>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 pt-2">
-        <Link
-          href={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}/supervisor`}
-          className="text-sm font-medium text-[#698F00] hover:underline"
-        >
-          Supervisor →
-        </Link>
-        <Link
-          href={`/t/${orgSlug}/jobs/${jobId}/qa`}
-          className="text-sm text-[#698F00] hover:underline"
-        >
-          ← Back to QA hub
-        </Link>
-      </div>
+      <QaSectionCompleteActions
+        orgSlug={orgSlug}
+        jobId={jobId}
+        runId={runId}
+        supervisorHref={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}/supervisor`}
+        qaHubHref={qaHubHref}
+        allSectionsCleared={allSectionsCleared}
+        alreadyFinalApproved={Boolean(supervisorFinalApprovedAt)}
+      />
     </div>
   );
 }
