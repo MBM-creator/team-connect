@@ -1,10 +1,9 @@
 import type { CcProjectVariation } from '@/lib/cc-client';
-import { clientConnectVariationsUrl } from '@/lib/cc-client-display';
+
+const VARIATIONS_APP_URL = 'https://variations.madebymobbs.com.au/';
 
 type ClientConnectVariationsSummaryProps = {
   variations: CcProjectVariation[];
-  quoteId?: string | null;
-  portalBaseUrl?: string | null;
   className?: string;
 };
 
@@ -24,21 +23,13 @@ function variationLabel(variation: CcProjectVariation): string {
 
 export function ClientConnectVariationsSummary({
   variations,
-  quoteId = null,
-  portalBaseUrl = null,
   className = '',
 }: ClientConnectVariationsSummaryProps) {
-  const variationsUrl = clientConnectVariationsUrl(
-    portalBaseUrl,
-    quoteId,
-    variations.find((variation) => variation.href)?.href ?? null
-  );
-
   return (
     <section className={className}>
       <h2 className="text-lg font-semibold text-gray-900 mb-2">Variations</h2>
       {variations.length === 0 ? (
-        <p className="text-sm text-gray-500">No variations linked to this Client Connect project.</p>
+        <p className="text-sm text-gray-500">No variations linked to this project yet.</p>
       ) : (
         <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
           {variations.map((variation) => {
@@ -63,18 +54,16 @@ export function ClientConnectVariationsSummary({
           })}
         </ul>
       )}
-      {variationsUrl && (
-        <p className="mt-3">
-          <a
-            href={variationsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-medium text-[#698F00] hover:underline"
-          >
-            Open variations in Client Connect →
-          </a>
-        </p>
-      )}
+      <p className="mt-3">
+        <a
+          href={VARIATIONS_APP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-[#698F00] hover:underline"
+        >
+          Open variations app →
+        </a>
+      </p>
     </section>
   );
 }

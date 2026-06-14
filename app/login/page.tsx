@@ -14,6 +14,8 @@ function reasonMessage(reason: string | null): string | null {
       return 'You do not have permission to access that page.';
     case 'no_org':
       return 'Organisation context is required.';
+    case 'password_reset':
+      return 'Your password has been updated. Sign in with your new password.';
     default:
       return null;
   }
@@ -107,6 +109,10 @@ function LoginForm() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        <a href="/forgot-password" className="mt-4 inline-block text-sm text-[#698F00] hover:underline">
+          Forgot password?
+        </a>
 
         {(reason === 'deactivated' || reason === 'forbidden') && (
           <button

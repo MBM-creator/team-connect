@@ -2,16 +2,22 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
-
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { QaSectionEvidenceSummary } from '@/components/QaSectionEvidenceSummary';
+import { QaSectionHeader } from '@/components/QaSectionHeader';
+import { QaSectionItemCard } from '@/components/qa-section/QaSectionItemCard';
+import { QaSectionStateBanner } from '@/components/QaSectionStateBanner';
+import { QaSectionSubmitBar } from '@/components/QaSectionSubmitBar';
 import { getV2SectionDefinition, getV2SectionItemsForSetup, isV2SectionCode, type PavingSectionCodeV2 } from '@/lib/paving-qa-v2-catalog';
 import type { PavingQaSetupV2 } from '@/lib/paving-qa-v2-types';
 import type { V2CatalogueItem } from '@/lib/paving-qa-v2-catalog';
 import type { V2SectionUiState } from '@/lib/paving-qa-v2-graph';
 import { compressImagesForUpload } from '@/lib/client-image-compression';
+import { computeQaSectionEvidenceSummary, formatQaSubmissionTimestamp, scrollToQaSectionItem, validateQaSectionClient } from '@/lib/qa-section-display';
 import { submitQaSectionWithPhotos } from '@/lib/qa-section-submit-client';
 
 type Answers = Record<string, { result: string; note: string }>;
+type JobContext = { name?: string | null; cc_project_title_snapshot?: string | null };
 
 type V2PhotoRow = {
   id: string;
@@ -21,93 +27,20 @@ type V2PhotoRow = {
   signed_url: string | null;
 };
 
-// ---------------------------------------------------------------------------
-// Shared: saved photo thumbnails
-// ---------------------------------------------------------------------------
+type V2SubmissionMeta = { status: string; submittedAt: string | null } | null;
 
-function SavedPhotos({
-  savedCount,
-  loadedPhotos,
-}: {
-  savedCount: number;
-  loadedPhotos: V2PhotoRow[] | null;
-}) {
-  if (savedCount === 0) return null;
+function QaSectionLoadingShell() {
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-gray-600">
-        Saved evidence ({savedCount} photo{savedCount !== 1 ? 's' : ''})
-      </p>
-      {loadedPhotos === null ? (
-        <p className="text-xs text-gray-400">Loading previews…</p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {loadedPhotos.map((photo) =>
-            photo.signed_url ? (
-              <a
-                key={photo.id}
-                href={photo.signed_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={
-                  photo.created_at
-                    ? new Date(photo.created_at).toLocaleString('en-AU', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : 'View photo'
-                }
-              >
-                <img
-                  src={photo.signed_url}
-                  alt="Evidence"
-                  className="w-14 h-14 object-cover rounded border border-gray-200 hover:opacity-80 transition-opacity"
-                />
-              </a>
-            ) : (
-              <div
-                key={photo.id}
-                className="w-14 h-14 rounded border border-gray-200 bg-gray-50 flex items-center justify-center"
-              >
-                <span className="text-xs text-gray-400 text-center leading-tight px-1">No preview</span>
-              </div>
-            )
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Shared: new-file previews (shown before submit)
-// ---------------------------------------------------------------------------
-
-function NewFilePreviews({ previews }: { previews: string[] }) {
-  if (previews.length === 0) return null;
-  return (
-    <div className="mt-2 space-y-1.5">
-      <p className="text-xs font-medium text-gray-600">
-        {previews.length} new photo{previews.length !== 1 ? 's' : ''} selected
-      </p>
-      <div className="flex flex-wrap gap-1.5">
-        {previews.map((url, i) => (
-          <img
-            key={i}
-            src={url}
-            alt={`New photo ${i + 1}`}
-            className="w-14 h-14 object-cover rounded border border-[#698F00]/40"
-          />
-        ))}
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-xl mx-auto animate-pulse space-y-4" aria-busy="true" aria-label="Loading section">
+        <div className="h-4 w-28 rounded bg-gray-200" />
+        <div className="h-8 w-72 max-w-full rounded bg-gray-200" />
+        <div className="h-20 rounded-lg bg-gray-200" />
+        <div className="h-24 rounded-lg bg-gray-200" />
       </div>
     </div>
   );
 }
-
-type V2SubmissionMeta = { status: string; submittedAt: string | null } | null;
 
 function V2SectionPage({
   orgSlug,
@@ -117,6 +50,7 @@ function V2SectionPage({
   items,
   sectionState,
   runStatus,
+  job,
   initialAnswers,
   submissionMeta,
   existingPhotoCounts,
@@ -130,6 +64,7 @@ function V2SectionPage({
   items: V2CatalogueItem[];
   sectionState: V2SectionUiState;
   runStatus: string;
+  job: JobContext | null;
   initialAnswers: Answers;
   submissionMeta: V2SubmissionMeta;
   existingPhotoCounts: Record<string, number>;
@@ -144,11 +79,32 @@ function V2SectionPage({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationSummary, setValidationSummary] = useState<string[]>([]);
+  const [fieldErrorsByItem, setFieldErrorsByItem] = useState<Record<string, string[]>>({});
+  const [invalidItemKeys, setInvalidItemKeys] = useState<Set<string>>(new Set());
   const createdUrlsRef = useRef<string[]>([]);
 
   const isReadOnly = runStatus !== 'active';
   const isBlocked = sectionState.status === 'blocked';
   const canSubmit = !isReadOnly && !isBlocked;
+
+  const evidenceSummary = useMemo(
+    () =>
+      computeQaSectionEvidenceSummary({
+        items,
+        answers,
+        photosByItem: photosLoaded ? photosByItem : {},
+        photoFiles,
+        savedPhotoCountsByItem: photosLoaded ? undefined : existingPhotoCounts,
+      }),
+    [items, answers, photosByItem, photoFiles, photosLoaded, existingPhotoCounts]
+  );
+
+  function clearValidation() {
+    setValidationSummary([]);
+    setFieldErrorsByItem({});
+    setInvalidItemKeys(new Set());
+  }
 
   useEffect(() => {
     return () => {
@@ -158,15 +114,20 @@ function V2SectionPage({
 
   function setResult(key: string, result: string) {
     if (!canSubmit) return;
+    clearValidation();
     setAnswers((prev) => ({ ...prev, [key]: { result, note: prev[key]?.note ?? '' } }));
   }
+
   function setNote(key: string, note: string) {
     if (!canSubmit) return;
+    clearValidation();
     setAnswers((prev) => ({ ...prev, [key]: { result: prev[key]?.result ?? '', note } }));
   }
+
   async function addFiles(key: string, files: FileList | null) {
     if (!canSubmit || !files?.length) return;
     setError(null);
+    clearValidation();
     try {
       const newFiles = await compressImagesForUpload(Array.from(files));
       const newPreviews = newFiles.map((f) => {
@@ -184,9 +145,34 @@ function V2SectionPage({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
+
+    const clientValidation = validateQaSectionClient({
+      qaType: 'paving',
+      items,
+      answers,
+      photosByItem: photosLoaded ? photosByItem : {},
+      photoFiles,
+      existingPhotoCounts: photosLoaded ? undefined : existingPhotoCounts,
+    });
+
+    if (!clientValidation.ok) {
+      const byItem: Record<string, string[]> = {};
+      for (const fe of clientValidation.fieldErrors) {
+        byItem[fe.itemKey] = [...(byItem[fe.itemKey] ?? []), fe.message];
+      }
+      setValidationSummary(clientValidation.summaryErrors);
+      setFieldErrorsByItem(byItem);
+      setInvalidItemKeys(new Set(clientValidation.invalidItemKeys));
+      if (clientValidation.invalidItemKeys[0]) {
+        scrollToQaSectionItem(clientValidation.invalidItemKeys[0]);
+      }
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSaved(false);
+    clearValidation();
     try {
       const result = await submitQaSectionWithPhotos({
         submitUrl: `/api/jobs/${jobId}/qa/runs/${runId}/sections/${encodeURIComponent(sectionCode)}/submit?orgSlug=${encodeURIComponent(orgSlug)}`,
@@ -211,231 +197,96 @@ function V2SectionPage({
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-xl mx-auto">
-        <Link
-          href={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}`}
-          className="text-sm text-[#698F00] hover:underline"
-        >
-          ← Run overview
-        </Link>
+        <QaSectionHeader
+          backHref={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}`}
+          job={job}
+          qaType="paving"
+          sectionTitle={def?.title ?? sectionCode}
+          sectionDescription={def?.description}
+        />
 
-        <div className="flex items-center gap-2 mt-2">
-          <h1 className="text-xl font-bold text-gray-900">{def?.title ?? sectionCode}</h1>
-          <span className="px-1.5 py-0.5 text-xs rounded bg-[#698F00]/10 text-[#698F00] border border-[#698F00]/20">
-            v2
-          </span>
-        </div>
-        {def && <p className="text-sm text-gray-500 mt-1">{def.description}</p>}
+        <QaSectionStateBanner
+          sectionStatus={sectionState.status}
+          runStatus={runStatus}
+          isReadOnly={isReadOnly}
+          isBlocked={isBlocked}
+          blockedBy={sectionState.blockedBy}
+        />
+        <QaSectionEvidenceSummary summary={evidenceSummary} />
 
-        {isReadOnly && (
-          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm">
-            This run is {runStatus || 'not active'} — evidence is read-only.
-          </div>
-        )}
-        {isBlocked && sectionState.blockedBy && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-            <p className="font-semibold mb-1">This section is blocked:</p>
-            <ul className="list-disc pl-4 space-y-0.5">
-              {sectionState.blockedBy.map((b) => (
-                <li key={`${b.section}:${b.reason}`}>{b.reason}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {sectionState.status === 'issue_raised' && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-            This section has an unresolved issue. Supervisor action required before it can be cleared.
-          </div>
-        )}
-        {sectionState.status === 'cleared' && (
-          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-            This section is cleared. You can re-submit to update evidence.
-          </div>
-        )}
-
-        {/* Existing submission banner */}
-        {submissionMeta && (
-          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 text-sm flex items-center justify-between flex-wrap gap-1">
+        {submissionMeta ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-1 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
             <span>
               Evidence on file —&nbsp;
               <span className="font-medium capitalize">
                 {submissionMeta.status.replace(/_/g, ' ')}
               </span>
             </span>
-            {submissionMeta.submittedAt && (
-              <span className="text-blue-700 text-xs">
-                {new Date(submissionMeta.submittedAt).toLocaleString('en-AU', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+            {submissionMeta.submittedAt ? (
+              <span className="text-xs text-blue-700">
+                {formatQaSubmissionTimestamp(submissionMeta.submittedAt)}
               </span>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
 
-        {saved && (
-          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-medium">
+        {saved ? (
+          <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-800">
             Evidence saved — returning to run overview…
           </div>
-        )}
-        {error && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm space-y-1">
+        ) : null}
+        {error ? (
+          <div className="mt-3 space-y-1 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             {error.split('\n').map((line, i) => (
               <p key={i}>{line}</p>
             ))}
           </div>
-        )}
+        ) : null}
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           {items.map((item) => {
-            const result = answers[item.key]?.result ?? '';
-            // Use signed-URL photos when loaded, fall back to bare count until then
-            const loadedPhotos = photosLoaded ? (photosByItem[item.key] ?? []) : null;
-            const savedPhotoCount =
-              loadedPhotos !== null ? loadedPhotos.length : (existingPhotoCounts[item.key] ?? 0);
-            const newPreviews = photoPreviews[item.key] ?? [];
+            const loadedPhotos = photosLoaded ? (photosByItem[item.key] ?? []) : [];
+            const savedPhotoCount = photosLoaded
+              ? loadedPhotos.length
+              : (existingPhotoCounts[item.key] ?? 0);
 
             return (
-              <div
+              <QaSectionItemCard
                 key={item.key}
-                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium text-gray-900">{item.label}</p>
-                  {item.requirePhoto && (
-                    <span className="flex-none text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                      Photo required
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  {!item.photoOnly &&
-                    (item.allowNa
-                      ? (['pass', 'fail', 'not_required'] as const)
-                      : (['pass', 'fail'] as const)
-                    ).map((r) => (
-                      <label key={r} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`r-${item.key}`}
-                          checked={result === r}
-                          disabled={!canSubmit}
-                          onChange={() => setResult(item.key, r)}
-                          className="accent-[#698F00]"
-                        />
-                        <span>{r === 'not_required' ? 'N/A' : r.charAt(0).toUpperCase() + r.slice(1)}</span>
-                      </label>
-                    ))}
-                  {item.photoOnly && item.allowNa && (
-                    <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={result === 'not_required'}
-                        disabled={!canSubmit}
-                        onChange={(e) =>
-                          setResult(item.key, e.target.checked ? 'not_required' : '')
-                        }
-                        className="accent-[#698F00]"
-                      />
-                      <span>N/A</span>
-                    </label>
-                  )}
-                </div>
-
-                {/* Note field: always shown on fail; also shown when noteRequiredWhen matches
-                    or when an existing note is present (so pre-populated notes remain visible) */}
-                {!item.photoOnly &&
-                  (result === 'fail' ||
-                    (item.noteRequiredWhen ?? []).includes(result as 'pass' | 'fail' | 'not_required') ||
-                    Boolean(answers[item.key]?.note)) &&
-                  (() => {
-                  const noteIsRequired =
-                    result === 'fail' ||
-                    (item.noteRequiredWhen ?? []).includes(result as 'pass' | 'fail' | 'not_required');
-                  return (
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-gray-700">
-                        Note{noteIsRequired ? <span className="text-red-500 ml-0.5">*</span> : null}
-                      </p>
-                      <textarea
-                        placeholder={
-                          item.notePrompt ??
-                          (result === 'fail' ? 'Describe the issue (required)' : 'Note (required)')
-                        }
-                        className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                        rows={2}
-                        value={answers[item.key]?.note ?? ''}
-                        disabled={!canSubmit}
-                        onChange={(e) => setNote(item.key, e.target.value)}
-                      />
-                    </div>
-                  );
-                })()}
-
-                {/* Saved photo evidence — always visible when photos exist */}
-                <SavedPhotos savedCount={savedPhotoCount} loadedPhotos={loadedPhotos} />
-
-                {/* Upload section — photo-only items always show upload; others hide when N/A selected */}
-                {item.requirePhoto && (item.photoOnly || result !== 'not_required') && (
-                  <div>
-                    <p className="text-xs text-gray-600 mb-1.5">
-                      {savedPhotoCount > 0 ? 'Add more photos (optional)' : 'Photos'}
-                    </p>
-                    <label
-                      className={`inline-flex items-center gap-2 py-1.5 px-3 rounded-lg border text-sm font-medium transition-colors ${
-                        !canSubmit
-                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-                          : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer'
-                      }`}
-                    >
-                      <svg className="w-4 h-4 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {newPreviews.length > 0
-                        ? `${newPreviews.length} photo${newPreviews.length !== 1 ? 's' : ''} selected`
-                        : 'Choose photos'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        disabled={!canSubmit}
-                        className="sr-only"
-                        onChange={(e) => addFiles(item.key, e.target.files)}
-                      />
-                    </label>
-                    <NewFilePreviews previews={newPreviews} />
-                  </div>
-                )}
-              </div>
+                item={item}
+                answer={answers[item.key]}
+                canSubmit={canSubmit}
+                savedPhotos={loadedPhotos}
+                savedPhotoCount={savedPhotoCount}
+                previews={photoPreviews[item.key] ?? []}
+                fieldErrors={fieldErrorsByItem[item.key]}
+                isInvalid={invalidItemKeys.has(item.key)}
+                onResult={(result) => setResult(item.key, result)}
+                onNote={(note) => setNote(item.key, note)}
+                onFiles={(files) => addFiles(item.key, files)}
+              />
             );
           })}
 
           {isBlocked ? (
-            <p className="text-sm text-center text-gray-500">
+            <p className="text-center text-sm text-gray-500">
               Submission unavailable — unblock upstream sections first.
             </p>
           ) : (
-            <button
-              type="submit"
-              disabled={saving || !canSubmit}
-              className="w-full bg-[#698F00] text-white py-2 rounded-lg font-medium disabled:bg-gray-400"
-            >
-              {saving ? 'Saving…' : 'Submit section evidence'}
-            </button>
+            <QaSectionSubmitBar
+              saving={saving}
+              canSubmit={canSubmit}
+              isReadOnly={isReadOnly}
+              isBlocked={isBlocked}
+              runStatus={runStatus}
+              validationErrors={validationSummary}
+            />
           )}
         </form>
       </div>
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Root page — detects version and renders the correct sub-component
-// ---------------------------------------------------------------------------
 
 export default function PavingQaSectionPage() {
   const params = useParams();
@@ -452,6 +303,7 @@ export default function PavingQaSectionPage() {
   const [photosByItem, setPhotosByItem] = useState<Record<string, V2PhotoRow[]>>({});
   const [photosLoaded, setPhotosLoaded] = useState(false);
   const [runStatus, setRunStatus] = useState<string>('');
+  const [job, setJob] = useState<JobContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -476,14 +328,15 @@ export default function PavingQaSectionPage() {
         }
 
         setRunStatus(String(d.run?.status ?? ''));
+        setJob(d.job && typeof d.job === 'object' ? (d.job as JobContext) : null);
 
         if (isV2SectionCode(sectionCodeRaw)) {
           const setup = d.setup as PavingQaSetupV2 | undefined;
           if (setup?.area_uses?.length) {
             setItems(getV2SectionItemsForSetup(sectionCodeRaw as PavingSectionCodeV2, setup));
           } else {
-            const def = getV2SectionDefinition(sectionCodeRaw as PavingSectionCodeV2);
-            setItems(def?.items ?? []);
+            const sectionDef = getV2SectionDefinition(sectionCodeRaw as PavingSectionCodeV2);
+            setItems(sectionDef?.items ?? []);
           }
         }
         setSectionStates(Array.isArray(d.sectionStates) ? (d.sectionStates as V2SectionUiState[]) : []);
@@ -564,11 +417,7 @@ export default function PavingQaSectionPage() {
   }, [orgSlug, jobId, runId, sectionCodeRaw]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4">
-        <p className="text-gray-600">Loading…</p>
-      </div>
-    );
+    return <QaSectionLoadingShell />;
   }
 
   if (error) {
@@ -626,6 +475,7 @@ export default function PavingQaSectionPage() {
       items={items}
       sectionState={myState}
       runStatus={runStatus}
+      job={job}
       initialAnswers={initialAnswers}
       submissionMeta={submissionMeta}
       existingPhotoCounts={existingPhotoCounts}

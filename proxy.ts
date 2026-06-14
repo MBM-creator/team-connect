@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { loadStaffProfileForOrg } from '@/lib/staff-auth';
 
 function isPublicPath(pathname: string): boolean {
-  if (pathname === '/' || pathname === '/login') return true;
+  if (pathname === '/' || pathname === '/login' || pathname === '/forgot-password') return true;
   if (pathname.startsWith('/auth/')) return true;
   if (/^\/t\/[^/]+\/daily\/?$/.test(pathname)) return true;
   return false;
@@ -132,6 +132,7 @@ export const config = {
   matcher: [
     '/',
     '/login',
+    '/forgot-password',
     '/auth/:path*',
     '/t/:path*',
     '/api/jobs/:path*',

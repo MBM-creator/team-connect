@@ -4,116 +4,18 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { QaSectionEvidenceSummary } from '@/components/QaSectionEvidenceSummary';
 import { QaSectionHeader } from '@/components/QaSectionHeader';
+import { QaSectionItemCard } from '@/components/qa-section/QaSectionItemCard';
 import { QaSectionStateBanner } from '@/components/QaSectionStateBanner';
 import { QaSectionSubmitBar } from '@/components/QaSectionSubmitBar';
-import { getIrrigationSectionDefinition, isIrrigationSectionCode, type IrrigationCatalogueItem, type IrrigationSectionCode } from '@/lib/irrigation-qa-v1-catalog';
+import { getIrrigationSectionDefinition, isIrrigationSectionCode, type IrrigationSectionCode } from '@/lib/irrigation-qa-v1-catalog';
 import type { IrrigationSectionUiState } from '@/lib/irrigation-qa-v1-graph';
 import { compressImagesForUpload } from '@/lib/client-image-compression';
-import { computeQaSectionEvidenceSummary } from '@/lib/qa-section-display';
+import { computeQaSectionEvidenceSummary, scrollToQaSectionItem, validateQaSectionClient } from '@/lib/qa-section-display';
 import { submitQaSectionWithPhotos } from '@/lib/qa-section-submit-client';
 
 type Answers = Record<string, { result: string; note: string }>;
 type PhotoRow = { id: string; item_key: string; content_type: string; created_at: string | null; signed_url: string | null };
 type JobContext = { name?: string | null; cc_project_title_snapshot?: string | null };
-
-function SavedPhotos({ photos }: { photos: PhotoRow[] }) {
-  if (photos.length === 0) return null;
-  return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-gray-600">Saved evidence ({photos.length})</p>
-      <div className="flex flex-wrap gap-1.5">
-        {photos.map((photo) => photo.signed_url ? (
-          <a key={photo.id} href={photo.signed_url} target="_blank" rel="noopener noreferrer">
-            <img src={photo.signed_url} alt="Evidence" className="w-14 h-14 object-cover rounded border border-gray-200 hover:opacity-80 transition-opacity" />
-          </a>
-        ) : (
-          <div key={photo.id} className="w-14 h-14 rounded border border-gray-200 bg-gray-50 flex items-center justify-center">
-            <span className="text-xs text-gray-400">No preview</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ItemCard({
-  item,
-  answer,
-  canSubmit,
-  savedPhotos,
-  previews,
-  onResult,
-  onNote,
-  onFiles,
-}: {
-  item: IrrigationCatalogueItem;
-  answer: { result?: string; note?: string } | undefined;
-  canSubmit: boolean;
-  savedPhotos: PhotoRow[];
-  previews: string[];
-  onResult: (result: string) => void;
-  onNote: (note: string) => void;
-  onFiles: (files: FileList | null) => void;
-}) {
-  const result = answer?.result ?? '';
-  const noteRequired = result === 'fail' || (item.noteRequiredWhen ?? []).includes(result as 'pass' | 'fail' | 'not_required');
-  const needsEvidence = (item.requirePhoto || item.requireMarkedImage) && result !== 'not_required';
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium text-gray-900">{item.label}</p>
-          {item.staffNote && <p className="mt-1 text-xs text-amber-800">{item.staffNote}</p>}
-        </div>
-        {(item.requirePhoto || item.requireMarkedImage) && (
-          <span className="flex-none text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-            {item.requireMarkedImage ? 'Marked-up image required' : 'Photo required'}
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-3">
-        {(['pass', 'fail', ...(item.allowNa ? ['not_required'] : [])] as string[]).map((value) => (
-          <label key={value} className="flex items-center gap-1.5 text-sm cursor-pointer">
-            <input type="radio" name={`r-${item.key}`} checked={result === value} disabled={!canSubmit} onChange={() => onResult(value)} className="accent-[#698F00]" />
-            <span>{value === 'not_required' ? 'N/A' : value.charAt(0).toUpperCase() + value.slice(1)}</span>
-          </label>
-        ))}
-      </div>
-
-      {(noteRequired || Boolean(answer?.note)) && (
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-700">Note{noteRequired ? <span className="text-red-500 ml-0.5">*</span> : null}</p>
-          <textarea
-            rows={2}
-            disabled={!canSubmit}
-            value={answer?.note ?? ''}
-            onChange={(e) => onNote(e.target.value)}
-            placeholder={item.notePrompt ?? (result === 'fail' ? 'Describe the issue' : 'Record required note')}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-          />
-        </div>
-      )}
-
-      <SavedPhotos photos={savedPhotos} />
-
-      {needsEvidence && (
-        <div>
-          <p className="text-xs text-gray-600 mb-1.5">{savedPhotos.length > 0 ? 'Add more evidence (optional)' : item.requireMarkedImage ? 'Marked-up image' : 'Photos'}</p>
-          <label className={`inline-flex items-center gap-2 py-1.5 px-3 rounded-lg border text-sm font-medium ${canSubmit ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer' : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'}`}>
-            Choose images
-            <input type="file" accept="image/*" multiple disabled={!canSubmit} className="sr-only" onChange={(e) => onFiles(e.target.files)} />
-          </label>
-          {previews.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {previews.map((url, i) => <img key={i} src={url} alt={`New evidence ${i + 1}`} className="w-14 h-14 object-cover rounded border border-[#698F00]/40" />)}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function IrrigationQaSectionPage() {
   const params = useParams();
@@ -138,6 +40,9 @@ export default function IrrigationQaSectionPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationSummary, setValidationSummary] = useState<string[]>([]);
+  const [fieldErrorsByItem, setFieldErrorsByItem] = useState<Record<string, string[]>>({});
+  const [invalidItemKeys, setInvalidItemKeys] = useState<Set<string>>(new Set());
   const createdUrlsRef = useRef<string[]>([]);
 
   const isReadOnly = runStatus !== 'active';
@@ -153,6 +58,12 @@ export default function IrrigationQaSectionPage() {
       }),
     [items, answers, photosByItem, photoFiles]
   );
+
+  function clearValidation() {
+    setValidationSummary([]);
+    setFieldErrorsByItem({});
+    setInvalidItemKeys(new Set());
+  }
 
   useEffect(() => () => {
     for (const url of createdUrlsRef.current) URL.revokeObjectURL(url);
@@ -202,17 +113,20 @@ export default function IrrigationQaSectionPage() {
 
   function setResult(key: string, result: string) {
     if (!canSubmit) return;
+    clearValidation();
     setAnswers((prev) => ({ ...prev, [key]: { result, note: prev[key]?.note ?? '' } }));
   }
 
   function setNote(key: string, note: string) {
     if (!canSubmit) return;
+    clearValidation();
     setAnswers((prev) => ({ ...prev, [key]: { result: prev[key]?.result ?? '', note } }));
   }
 
   async function addFiles(key: string, files: FileList | null) {
     if (!canSubmit || !files?.length) return;
     setError(null);
+    clearValidation();
     try {
       const nextFiles = await compressImagesForUpload(Array.from(files));
       const previews = nextFiles.map((file) => {
@@ -230,9 +144,33 @@ export default function IrrigationQaSectionPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!sectionCode || !canSubmit) return;
+
+    const clientValidation = validateQaSectionClient({
+      qaType: 'irrigation',
+      items,
+      answers,
+      photosByItem,
+      photoFiles,
+    });
+
+    if (!clientValidation.ok) {
+      const byItem: Record<string, string[]> = {};
+      for (const fe of clientValidation.fieldErrors) {
+        byItem[fe.itemKey] = [...(byItem[fe.itemKey] ?? []), fe.message];
+      }
+      setValidationSummary(clientValidation.summaryErrors);
+      setFieldErrorsByItem(byItem);
+      setInvalidItemKeys(new Set(clientValidation.invalidItemKeys));
+      if (clientValidation.invalidItemKeys[0]) {
+        scrollToQaSectionItem(clientValidation.invalidItemKeys[0]);
+      }
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSaved(false);
+    clearValidation();
     try {
       const result = await submitQaSectionWithPhotos({
         submitUrl: `/api/jobs/${jobId}/qa/runs/${runId}/sections/${encodeURIComponent(sectionCode)}/submit?orgSlug=${encodeURIComponent(orgSlug)}`,
@@ -289,13 +227,16 @@ export default function IrrigationQaSectionPage() {
         {!loading && (
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             {items.map((item) => (
-              <ItemCard
+              <QaSectionItemCard
                 key={item.key}
                 item={item}
                 answer={answers[item.key]}
                 canSubmit={canSubmit}
                 savedPhotos={photosByItem[item.key] ?? []}
+                savedPhotoCount={(photosByItem[item.key] ?? []).length}
                 previews={photoPreviews[item.key] ?? []}
+                fieldErrors={fieldErrorsByItem[item.key]}
+                isInvalid={invalidItemKeys.has(item.key)}
                 onResult={(result) => setResult(item.key, result)}
                 onNote={(note) => setNote(item.key, note)}
                 onFiles={(files) => addFiles(item.key, files)}
@@ -307,6 +248,7 @@ export default function IrrigationQaSectionPage() {
               isReadOnly={isReadOnly}
               isBlocked={isBlocked}
               runStatus={runStatus}
+              validationErrors={validationSummary}
             />
           </form>
         )}

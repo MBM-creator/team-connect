@@ -8,6 +8,7 @@ export function QaSectionSubmitBar({
   runStatus,
   label = 'Submit section evidence',
   savingLabel = 'Saving…',
+  validationErrors,
 }: {
   saving: boolean;
   canSubmit: boolean;
@@ -16,6 +17,7 @@ export function QaSectionSubmitBar({
   runStatus: string;
   label?: string;
   savingLabel?: string;
+  validationErrors?: string[];
 }) {
   const disabledReason = qaSectionSubmitDisabledReason({
     canSubmit,
@@ -27,6 +29,16 @@ export function QaSectionSubmitBar({
 
   return (
     <div className="space-y-2">
+      {validationErrors && validationErrors.length > 0 ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <p className="font-semibold">Fix these items before submitting:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            {validationErrors.map((message, index) => (
+              <li key={`${index}:${message}`}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <button
         type="submit"
         disabled={saving || !canSubmit}

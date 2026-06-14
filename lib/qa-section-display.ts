@@ -1,4 +1,9 @@
 import { qaTypeDisplayLabel } from '@/lib/qa-hub-display';
+import type { CrewSectionFieldError } from '@/lib/paving-qa-submit-validation';
+import {
+  validateCrewSectionPayloadIrrigationFields,
+  validateCrewSectionPayloadV2Fields,
+} from '@/lib/paving-qa-submit-validation';
 
 export type QaSectionWorkflowStatus =
   | 'pending'
@@ -147,11 +152,23 @@ export type QaSectionEvidenceSummary = {
   newPhotoCount: number;
 };
 
+function savedPhotoCountForItem(
+  itemKey: string,
+  photosByItem: Record<string, unknown[]>,
+  savedPhotoCountsByItem?: Record<string, number>
+): number {
+  if (savedPhotoCountsByItem && itemKey in savedPhotoCountsByItem) {
+    return savedPhotoCountsByItem[itemKey] ?? 0;
+  }
+  return (photosByItem[itemKey] ?? []).length;
+}
+
 export function computeQaSectionEvidenceSummary(input: {
   items: QaSectionCatalogueItem[];
   answers: QaSectionAnswers;
   photosByItem: Record<string, unknown[]>;
   photoFiles: Record<string, unknown[]>;
+  savedPhotoCountsByItem?: Record<string, number>;
 }): QaSectionEvidenceSummary {
   const itemCount = input.items.length;
   let answeredCount = 0;
@@ -163,7 +180,11 @@ export function computeQaSectionEvidenceSummary(input: {
     }
     const result = input.answers[item.key]?.result?.trim();
     if (item.photoOnly) {
-      const saved = (input.photosByItem[item.key] ?? []).length;
+      const saved = savedPhotoCountForItem(
+        item.key,
+        input.photosByItem,
+        input.savedPhotoCountsByItem
+      );
       const pending = (input.photoFiles[item.key] ?? []).length;
       if (saved > 0 || pending > 0) answeredCount += 1;
     } else if (result) {
@@ -172,8 +193,14 @@ export function computeQaSectionEvidenceSummary(input: {
   }
 
   let savedPhotoCount = 0;
-  for (const photos of Object.values(input.photosByItem)) {
-    savedPhotoCount += photos.length;
+  if (input.savedPhotoCountsByItem) {
+    for (const count of Object.values(input.savedPhotoCountsByItem)) {
+      savedPhotoCount += count;
+    }
+  } else {
+    for (const photos of Object.values(input.photosByItem)) {
+      savedPhotoCount += photos.length;
+    }
   }
 
   let newPhotoCount = 0;
@@ -221,4 +248,155 @@ export function qaSectionJobDisplayName(job: {
 
 export function qaSectionTypeLabel(qaType: string | null | undefined): string {
   return qaTypeDisplayLabel(qaType);
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4B: client-side field helpers (browser-safe)
+// ---------------------------------------------------------------------------
+
+export function buildPhotoCountByItem(input: {
+  photosByItem: Record<string, unknown[]>;
+  photoFiles: Record<string, unknown[]>;
+  existingPhotoCounts?: Record<string, number>;
+}): Record<string, number> {
+  const counts: Record<string, number> = { ...(input.existingPhotoCounts ?? {}) };
+
+  for (const [key, photos] of Object.entries(input.photosByItem)) {
+    counts[key] = photos.length;
+  }
+
+  for (const [key, files] of Object.entries(input.photoFiles)) {
+    counts[key] = (counts[key] ?? 0) + files.length;
+  }
+
+  return counts;
+}
+
+export function fieldErrorToUserMessage(error: CrewSectionFieldError): string {
+  switch (error.kind) {
+    case 'answer':
+      return 'Answer this checklist item';
+    case 'note':
+      return 'Add a required note';
+    case 'photo':
+      return 'Add at least one photo';
+  }
+}
+
+export type QaSectionClientValidationResult =
+  | { ok: true }
+  | {
+      ok: false;
+      summaryErrors: string[];
+      fieldErrors: { itemKey: string; message: string }[];
+      invalidItemKeys: string[];
+    };
+
+export function validateQaSectionClient(input: {
+  qaType: 'paving' | 'irrigation' | 'fencing';
+  items: QaSectionCatalogueItem[];
+  answers: QaSectionAnswers;
+  photosByItem: Record<string, unknown[]>;
+  photoFiles: Record<string, unknown[]>;
+  existingPhotoCounts?: Record<string, number>;
+}): QaSectionClientValidationResult {
+  const photoCountByItem = buildPhotoCountByItem({
+    photosByItem: input.photosByItem,
+    photoFiles: input.photoFiles,
+    existingPhotoCounts: input.existingPhotoCounts,
+  });
+
+  const rawFieldErrors =
+    input.qaType === 'paving'
+      ? validateCrewSectionPayloadV2Fields(
+          input.items as Parameters<typeof validateCrewSectionPayloadV2Fields>[0],
+          input.answers,
+          photoCountByItem
+        )
+      : validateCrewSectionPayloadIrrigationFields(
+          input.items as Parameters<typeof validateCrewSectionPayloadIrrigationFields>[0],
+          input.answers,
+          photoCountByItem
+        );
+
+  if (rawFieldErrors.length === 0) {
+    return { ok: true };
+  }
+
+  const fieldErrors = rawFieldErrors.map((error) => ({
+    itemKey: error.itemKey,
+    message: fieldErrorToUserMessage(error),
+  }));
+
+  const summaryErrors = [...new Set(fieldErrors.map((fe) => fe.message))];
+  const invalidItemKeys = [...new Set(fieldErrors.map((fe) => fe.itemKey))];
+
+  return { ok: false, summaryErrors, fieldErrors, invalidItemKeys };
+}
+
+export function formatItemPhotoStatus(input: {
+  savedCount: number;
+  pendingCount: number;
+  needsEvidence: boolean;
+}): { warning: string | null; status: string | null } {
+  if (!input.needsEvidence) {
+    return { warning: null, status: null };
+  }
+
+  const parts: string[] = [];
+  if (input.savedCount > 0) {
+    parts.push(`${input.savedCount} saved photo${input.savedCount !== 1 ? 's' : ''}`);
+  }
+  if (input.pendingCount > 0) {
+    parts.push(`${input.pendingCount} new photo${input.pendingCount !== 1 ? 's' : ''} selected`);
+  }
+
+  const status = parts.length > 0 ? parts.join(', ') : null;
+  const warning =
+    input.savedCount + input.pendingCount === 0 ? 'Photo required' : null;
+
+  return { warning, status };
+}
+
+export function qaSectionNoteLabel(input: {
+  result: string;
+  noteRequired: boolean;
+}): string {
+  if (input.result === 'fail') {
+    return 'Failure / issue note';
+  }
+  if (input.noteRequired) {
+    return 'Required note';
+  }
+  return 'Note';
+}
+
+export function scrollToQaSectionItem(itemKey: string): void {
+  const el = document.getElementById(`qa-item-${itemKey}`);
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+const QA_SUBMISSION_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+/** Deterministic AU-style timestamp from ISO digits (no locale APIs). */
+export function formatQaSubmissionTimestamp(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!match) return iso.slice(0, 16).replace('T', ' ');
+  const [, year, month, day, hour, minute] = match;
+  const monthLabel = QA_SUBMISSION_MONTHS[parseInt(month, 10) - 1] ?? month;
+  return `${day} ${monthLabel} ${year}, ${hour}:${minute}`;
 }

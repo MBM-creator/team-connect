@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Upload } from 'tus-js-client';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { compressImageForUpload } from '@/lib/client-image-compression';
+import type { JobNotesMode } from '@/lib/job-notes-routes';
 import {
   JOB_NOTE_MAX_BODY_LENGTH,
   JOB_NOTE_IMAGE_MAX_BYTES,
@@ -67,13 +69,29 @@ interface JobActivityFeedProps {
   jobId: string;
   stages?: StageOption[];
   activeStageId?: string | null;
-  compact?: boolean;
-  defaultCollapsed?: boolean;
-  collapsedTitle?: string;
+  mode?: JobNotesMode;
+  returnTo?: string | null;
+  pageTitle?: string;
+  pageDescription?: string;
+  initialReportDate?: string;
+  initialStageId?: string | null;
 }
 
 const ACCEPTED_VIDEO_TYPES = JOB_NOTE_VIDEO_MIME_TYPES.join(',');
 const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
+
+const MODE_COPY: Record<JobNotesMode, { title: string; description: string; submit: string }> = {
+  capture: {
+    title: 'Add site note / photo',
+    description: 'Quickly add today\u2019s notes, photos or videos for this job.',
+    submit: 'Add site note / photo',
+  },
+  archive: {
+    title: 'Job notes, photos and videos',
+    description: 'View the full history of site notes, progress photos and videos for this job.',
+    submit: 'Post note',
+  },
+};
 
 function formatDateTime(iso: string): string {
   try {
@@ -97,6 +115,10 @@ function formatReportDate(value: string | null): string {
   const [year, month, day] = value.split('-').map(Number);
   if (!year || !month || !day) return value;
   return new Date(year, month - 1, day).toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
+
+function noteMatchesReportDate(note: JobNote, reportDate: string): boolean {
+  return (note.report_date ?? '').slice(0, 10) === reportDate;
 }
 
 function videoDuration(file: File): Promise<number | null> {
@@ -155,17 +177,25 @@ export function JobActivityFeed({
   jobId,
   stages = [],
   activeStageId = null,
-  compact = false,
-  defaultCollapsed = false,
-  collapsedTitle = 'Notes, photos and videos',
+  mode = 'archive',
+  returnTo = null,
+  pageTitle,
+  pageDescription,
+  initialReportDate,
+  initialStageId = null,
 }: JobActivityFeedProps) {
-  const [expanded, setExpanded] = useState(!defaultCollapsed);
+  const copy = MODE_COPY[mode];
+  const title = pageTitle ?? copy.title;
+  const description = pageDescription ?? copy.description;
+  const captureFilterDate = initialReportDate ?? todayReportDate();
+
   const [notes, setNotes] = useState<JobNote[]>([]);
-  const [loading, setLoading] = useState(!defaultCollapsed);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState('');
-  const [stageId, setStageId] = useState<string>(activeStageId ?? '');
-  const [reportDate, setReportDate] = useState('');
+  const [stageId, setStageId] = useState<string>(initialStageId ?? activeStageId ?? '');
+  const [reportDate, setReportDate] = useState(initialReportDate ?? todayReportDate());
+  const [showAllNotes, setShowAllNotes] = useState(mode === 'archive');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -178,12 +208,17 @@ export function JobActivityFeed({
   const imageRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setReportDate(todayReportDate());
-  }, []);
+    setReportDate(initialReportDate ?? todayReportDate());
+  }, [initialReportDate]);
 
   useEffect(() => {
-    setStageId((current) => current || activeStageId || '');
-  }, [activeStageId]);
+    const nextStage = initialStageId ?? activeStageId ?? '';
+    setStageId((current) => current || nextStage);
+  }, [activeStageId, initialStageId]);
+
+  useEffect(() => {
+    setShowAllNotes(mode === 'archive');
+  }, [mode]);
 
   const loadNotes = useCallback(async () => {
     if (!orgSlug || !jobId) return;
@@ -205,9 +240,13 @@ export function JobActivityFeed({
   }, [jobId, orgSlug]);
 
   useEffect(() => {
-    if (defaultCollapsed && !expanded) return;
     loadNotes();
-  }, [loadNotes, defaultCollapsed, expanded]);
+  }, [loadNotes]);
+
+  const displayedNotes = useMemo(() => {
+    if (mode === 'archive' || showAllNotes) return notes;
+    return notes.filter((note) => noteMatchesReportDate(note, captureFilterDate));
+  }, [notes, mode, showAllNotes, captureFilterDate]);
 
   function handleVideoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -395,7 +434,7 @@ export function JobActivityFeed({
       }
 
       setBody('');
-      setReportDate(todayReportDate());
+      setReportDate(initialReportDate ?? todayReportDate());
       setVideoFile(null);
       setImageFiles([]);
       setUploadPct(null);
@@ -434,38 +473,36 @@ export function JobActivityFeed({
     }
   }
 
-  if (defaultCollapsed && !expanded) {
-    return (
-      <section className={compact ? 'space-y-4' : 'mt-8 space-y-4'}>
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">{collapsedTitle}</h2>
-          <button
-            type="button"
-            onClick={() => {
-              setExpanded(true);
-              setLoading(true);
-            }}
-            className="mt-3 py-2 text-sm font-medium text-[#698F00] hover:underline"
-          >
-            Add or view notes
-          </button>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className={compact ? 'space-y-4' : 'mt-8 space-y-4'}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-gray-900">{collapsedTitle}</h2>
-        <div className="flex items-center gap-3">
-          {defaultCollapsed && (
+    <section className="space-y-4">
+      {returnTo && (
+        <Link href={returnTo} className="text-sm text-[#698F00] hover:underline">
+          ← Back
+        </Link>
+      )}
+
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+          <p className="mt-1 text-sm text-gray-600">{description}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          {mode === 'capture' && !showAllNotes && notes.length > displayedNotes.length && (
             <button
               type="button"
-              onClick={() => setExpanded(false)}
+              onClick={() => setShowAllNotes(true)}
               className="text-sm font-medium text-[#698F00] hover:underline"
             >
-              Hide notes
+              View all job notes
+            </button>
+          )}
+          {mode === 'capture' && showAllNotes && (
+            <button
+              type="button"
+              onClick={() => setShowAllNotes(false)}
+              className="text-sm font-medium text-[#698F00] hover:underline"
+            >
+              Show today only
             </button>
           )}
           {!loading && notes.length > 0 && (
@@ -505,7 +542,7 @@ export function JobActivityFeed({
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#698F00] disabled:bg-gray-100"
           />
           <p className="mt-1 text-xs text-gray-500">
-            Used for the note/photo/video schedule link and daily timeline filters.
+            Links this note to the job timeline for the selected date.
           </p>
         </div>
         <div>
@@ -584,19 +621,27 @@ export function JobActivityFeed({
           disabled={submitting}
           className="w-full rounded-lg bg-[#698F00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#5a7d00] disabled:cursor-not-allowed disabled:bg-gray-400 sm:w-auto"
         >
-          {submitting ? 'Posting…' : 'Post note'}
+          {submitting ? 'Posting…' : copy.submit}
         </button>
       </form>
 
+      {mode === 'capture' && !showAllNotes && (
+        <p className="text-xs text-gray-500">
+          Showing notes for {formatReportDate(captureFilterDate)}.
+        </p>
+      )}
+
       {loading && <p className="text-sm text-gray-600">Loading notes…</p>}
-      {!loading && notes.length === 0 && (
+      {!loading && displayedNotes.length === 0 && (
         <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
-          No notes, photos or videos yet.
+          {mode === 'capture' && !showAllNotes
+            ? `No notes, photos or videos for ${formatReportDate(captureFilterDate)} yet.`
+            : 'No notes, photos or videos yet.'}
         </div>
       )}
-      {!loading && notes.length > 0 && (
+      {!loading && displayedNotes.length > 0 && (
         <div className="space-y-3">
-          {notes.map((note) => (
+          {displayedNotes.map((note) => (
             <article key={note.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -607,10 +652,10 @@ export function JobActivityFeed({
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <span className="rounded-full bg-lime-50 px-2 py-0.5 text-[11px] font-medium text-lime-800 ring-1 ring-lime-200">
-                      Lives in {note.stage_name ? 'stage' : 'job'}
+                      {note.stage_name ? `Stage: ${note.stage_name}` : 'Job-wide'}
                     </span>
                     <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200">
-                      {formatReportDate(note.report_date)}
+                      Date: {formatReportDate(note.report_date)}
                     </span>
                     <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-700 ring-1 ring-gray-200">
                       Crew: {note.author_name}
