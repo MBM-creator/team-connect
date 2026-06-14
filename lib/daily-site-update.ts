@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { loadQaRunBundle } from '@/lib/qa-run-bundle';
-import { activeRunHasIncompleteEvidence } from '@/lib/paving-qa-v1-graph';
 import { v2RunHasIncompleteEvidence } from '@/lib/paving-qa-v2-graph';
 import { irrigationRunHasIncompleteEvidence } from '@/lib/irrigation-qa-v1-graph';
 import { fencingRunHasIncompleteEvidence } from '@/lib/fencing-qa-v1-graph';
@@ -168,16 +167,7 @@ export async function loadQaEvidenceWarning(
         );
         warningMessage =
           'Supervisor sign-off evidence is incomplete. Review the sign-off run before finishing today\'s work.';
-      } else if (bundle.ok && bundle.qaType === 'paving' && bundle.version === 1) {
-        hasIncomplete = activeRunHasIncompleteEvidence(
-          bundle.setup,
-          bundle.submissions,
-          bundle.photoRows,
-          bundle.issues
-        );
-        warningMessage =
-          'An active paving QA run still has incomplete required evidence. Finish QA when possible.';
-      } else if (bundle.ok && bundle.qaType === 'paving' && bundle.version === 2) {
+      } else if (bundle.ok && bundle.qaType === 'paving') {
         hasIncomplete = v2RunHasIncompleteEvidence(
           bundle.setup,
           bundle.submissions,

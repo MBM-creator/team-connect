@@ -14,7 +14,7 @@ import {
   type IssueSnapshot,
   type SubmissionSnapshot,
   type PhotoCounts,
-} from './paving-qa-v1-graph';
+} from './qa-evidence-graph';
 
 // Re-export shared snapshot types so callers can import from one place
 export type { IssueSnapshot, SubmissionSnapshot };

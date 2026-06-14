@@ -6,7 +6,13 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 function stripAuthHashFromUrl() {
   if (typeof window === 'undefined') return;
   const { pathname, search, hash } = window.location;
-  if (!hash.includes('access_token=') && !hash.includes('type=magiclink')) return;
+  if (
+    !hash.includes('access_token=') &&
+    !hash.includes('type=magiclink') &&
+    !hash.includes('type=recovery')
+  ) {
+    return;
+  }
   window.history.replaceState(null, '', `${pathname}${search}`);
 }
 

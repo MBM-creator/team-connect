@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { detectRunVersion } from '@/lib/paving-qa-dispatch';
-import type { PavingQaSetup as PavingQaSetupV1 } from '@/lib/paving-qa-v1-types';
 import type { PavingQaSetupV2 } from '@/lib/paving-qa-v2-types';
 import { validateIrrigationSetupV1 } from '@/lib/irrigation-qa-v1-setup';
 import type { IrrigationQaSetupV1 } from '@/lib/irrigation-qa-v1-types';
@@ -8,7 +7,7 @@ import { validateFencingSetupV1 } from '@/lib/fencing-qa-v1-setup';
 import type { FencingQaSetupV1 } from '@/lib/fencing-qa-v1-types';
 import { validateSignoffSetupV1 } from '@/lib/signoff-qa-v1-setup';
 import type { SignoffQaSetupV1 } from '@/lib/signoff-qa-v1-types';
-import type { IssueSnapshot, SubmissionSnapshot } from '@/lib/paving-qa-v1-graph';
+import type { IssueSnapshot, SubmissionSnapshot } from '@/lib/qa-evidence-graph';
 
 export type QaType = 'paving' | 'irrigation' | 'fencing' | 'sign_off';
 
@@ -32,12 +31,6 @@ type BundleBase = {
   submissions: SubmissionSnapshot[];
   issues: IssueSnapshot[];
   photoRows: { section_code: string; item_key: string }[];
-};
-
-export type PavingRunBundleV1 = BundleBase & {
-  qaType: 'paving';
-  version: 1;
-  setup: PavingQaSetupV1;
 };
 
 export type PavingRunBundleV2 = BundleBase & {
@@ -65,7 +58,6 @@ export type SignoffRunBundleV1 = BundleBase & {
 };
 
 export type QaRunBundle =
-  | PavingRunBundleV1
   | PavingRunBundleV2
   | IrrigationRunBundleV1
   | FencingRunBundleV1
@@ -176,24 +168,12 @@ export async function loadQaRunBundle(runId: string, jobId: string): Promise<QaR
   }
 
   const versionInfo = detectRunVersion(run.setup, run.setup_version as number | null);
-  if (versionInfo.version === 'unknown') return { ok: false, code: 'NOT_FOUND' };
-  if (versionInfo.version === 2) {
-    return {
-      ok: true,
-      qaType: 'paving',
-      version: 2,
-      run: runRow,
-      setup: versionInfo.setup,
-      submissions,
-      issues,
-      photoRows: photos,
-    };
-  }
+  if (versionInfo.version !== 2) return { ok: false, code: 'NOT_FOUND' };
 
   return {
     ok: true,
     qaType: 'paving',
-    version: 1,
+    version: 2,
     run: runRow,
     setup: versionInfo.setup,
     submissions,

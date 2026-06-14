@@ -16,8 +16,8 @@ interface IssueRow {
 
 type StaffRole = 'field' | 'supervisor' | 'admin';
 
-function getSectionLabel(sectionCode: string, setupVersion: number | null): string {
-  if (setupVersion === 2 && isV2SectionCode(sectionCode)) {
+function getSectionLabel(sectionCode: string): string {
+  if (isV2SectionCode(sectionCode)) {
     return getV2SectionDefinition(sectionCode as PavingSectionCodeV2)?.title ?? sectionCode;
   }
   return sectionCode;
@@ -30,7 +30,6 @@ export default function PavingQaSupervisorPage() {
   const runId = (params?.runId as string) ?? '';
 
   const [issues, setIssues] = useState<IssueRow[]>([]);
-  const [setupVersion, setSetupVersion] = useState<number | null>(null);
   const [photoRows, setPhotoRows] = useState<{ section_code: string; item_key: string }[]>([]);
   const [staffRole, setStaffRole] = useState<StaffRole | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +49,6 @@ export default function PavingQaSupervisorPage() {
       setStaffRole(me.staff.role as StaffRole);
     }
     setIssues(Array.isArray(d.issues) ? d.issues : []);
-    setSetupVersion(typeof d.setupVersion === 'number' ? d.setupVersion : null);
     setPhotoRows(Array.isArray(d.photoRows) ? d.photoRows : []);
   }, [jobId, orgSlug, runId]);
 
@@ -136,7 +134,7 @@ export default function PavingQaSupervisorPage() {
                     )}
                   </div>
                   <p className="text-gray-500 text-xs mt-0.5">
-                    {getSectionLabel(iss.section_code, setupVersion)}
+                    {getSectionLabel(iss.section_code)}
                   </p>
                   <p className="text-gray-600 mt-0.5 capitalize">
                     {iss.severity.replace(/_/g, ' ')} · {iss.status.replace(/_/g, ' ')}

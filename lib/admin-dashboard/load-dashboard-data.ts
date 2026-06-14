@@ -3,7 +3,7 @@ import { detectRunVersion } from '@/lib/paving-qa-dispatch';
 import { validateFencingSetupV1 } from '@/lib/fencing-qa-v1-setup';
 import { validateIrrigationSetupV1 } from '@/lib/irrigation-qa-v1-setup';
 import { validateSignoffSetupV1 } from '@/lib/signoff-qa-v1-setup';
-import type { IssueSnapshot, SubmissionSnapshot } from '@/lib/paving-qa-v1-graph';
+import type { IssueSnapshot, SubmissionSnapshot } from '@/lib/qa-evidence-graph';
 import type { QaRunBundle, QaType } from '@/lib/qa-run-bundle';
 import { buildActivityFeed } from './build-activity-feed';
 import {
@@ -101,18 +101,6 @@ function buildBundle(run: RunRow, submissions: SubmissionSnapshot[], issues: Iss
       ok: true,
       qaType: 'paving',
       version: 2,
-      run: runRow,
-      setup: versionInfo.setup,
-      submissions,
-      issues,
-      photoRows,
-    };
-  }
-  if (versionInfo.version === 1) {
-    return {
-      ok: true,
-      qaType: 'paving',
-      version: 1,
       run: runRow,
       setup: versionInfo.setup,
       submissions,

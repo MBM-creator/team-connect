@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { validateJobForOrg, normalizeSupabaseError, isValidUuid } from '@/lib/job-org-validation';
 import { guardStaffApi } from '@/lib/guard-staff-api';
-import { loadRunBundle } from '@/lib/paving-qa-run-bundle';
 import { loadQaRunBundle } from '@/lib/qa-run-bundle';
-import { activeRunHasIncompleteEvidence } from '@/lib/paving-qa-v1-graph';
 import { computeV2SectionUiStates } from '@/lib/paving-qa-v2-graph';
 import { getIrrigationFinalApprovalBlockers } from '@/lib/irrigation-qa-v1-graph';
 import { getFencingFinalApprovalBlockers } from '@/lib/fencing-qa-v1-graph';
@@ -157,21 +155,19 @@ export async function POST(
     }
   }
 
-  const bundle = typedBundle.qaType === 'paving' ? await loadRunBundle(runId, jobId) : null;
-
-  if (bundle?.ok && bundle.version === 2) {
+  if (typedBundle.qaType === 'paving') {
     const sectionStates = computeV2SectionUiStates(
-      bundle.setup,
-      bundle.submissions,
-      bundle.photoRows,
-      bundle.issues
+      typedBundle.setup,
+      typedBundle.submissions,
+      typedBundle.photoRows,
+      typedBundle.issues
     );
     const incompleteSections = sectionStates.filter((s) => !s.cleared);
     if (incompleteSections.length > 0) {
       const res = NextResponse.json(
         {
           ok: false,
-          message: 'Paving QA v2 cannot be final-approved until all applicable sections are cleared.',
+          message: 'Paving QA cannot be final-approved until all applicable sections are cleared.',
           incompleteSections: incompleteSections.map((s) => ({
             code: s.code,
             title: s.title,
@@ -183,11 +179,6 @@ export async function POST(
       res.headers.set('x-request-id', requestId);
       return res;
     }
-    // All v2 sections cleared — fall through to the shared approval write path below.
-  }
-
-  if (bundle?.ok && bundle.version !== 2 && activeRunHasIncompleteEvidence(bundle.setup, bundle.submissions, bundle.photoRows, bundle.issues)) {
-    return jsonError('Not all sections are cleared; complete QA evidence first', 409, requestId);
   }
 
   const now = new Date().toISOString();

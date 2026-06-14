@@ -1,5 +1,5 @@
 import type { QaCheckType } from '@/lib/cc-project-context';
-import { BLOCKING_ISSUE_STATUSES } from '@/lib/paving-qa-v1-graph';
+import { BLOCKING_ISSUE_STATUSES } from '@/lib/qa-evidence-graph';
 
 export type QaType = 'paving' | 'irrigation' | 'fencing' | 'sign_off';
 
@@ -10,7 +10,13 @@ export type QaHubRun = {
   completed_at?: string | null;
   supervisor_final_approved_at?: string | null;
   qa_type?: string | null;
+  setup_version?: number | null;
 };
+
+/** Legacy paving runs (pre-v2) are hidden from hub lists. */
+export function isLegacyPavingRun(run: QaHubRun): boolean {
+  return normalizeQaType(run.qa_type) === 'paving' && run.setup_version !== 2;
+}
 
 export function normalizeQaType(qaType: string | null | undefined): QaType {
   if (qaType === 'irrigation' || qaType === 'fencing' || qaType === 'sign_off') {
@@ -121,8 +127,9 @@ export function isCurrentQaRun(run: QaHubRun): boolean {
 }
 
 export function bucketHubRuns(runs: QaHubRun[]): { currentRuns: QaHubRun[]; historyRuns: QaHubRun[] } {
-  const currentRuns = runs.filter(isCurrentQaRun).sort(sortByStartedDesc);
-  const historyRuns = runs.filter((run) => !isCurrentQaRun(run)).sort(sortByStartedDesc);
+  const visible = runs.filter((run) => !isLegacyPavingRun(run));
+  const currentRuns = visible.filter(isCurrentQaRun).sort(sortByStartedDesc);
+  const historyRuns = visible.filter((run) => !isCurrentQaRun(run)).sort(sortByStartedDesc);
   return { currentRuns, historyRuns };
 }
 

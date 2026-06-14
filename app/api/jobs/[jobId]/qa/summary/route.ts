@@ -3,7 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { validateJobForOrg, normalizeSupabaseError } from '@/lib/job-org-validation';
 import { guardStaffApi } from '@/lib/guard-staff-api';
 import { loadQaRunBundle } from '@/lib/qa-run-bundle';
-import { activeRunHasIncompleteEvidence } from '@/lib/paving-qa-v1-graph';
 import { v2RunHasIncompleteEvidence } from '@/lib/paving-qa-v2-graph';
 import { irrigationRunHasIncompleteEvidence } from '@/lib/irrigation-qa-v1-graph';
 import { fencingRunHasIncompleteEvidence } from '@/lib/fencing-qa-v1-graph';
@@ -83,9 +82,7 @@ export async function GET(
           ? fencingRunHasIncompleteEvidence(bundle.setup, bundle.submissions, bundle.photoRows, bundle.issues)
           : bundle.qaType === 'sign_off'
             ? signoffRunHasIncompleteEvidence(bundle.setup, bundle.submissions, bundle.photoRows, bundle.issues)
-          : bundle.qaType === 'paving' && bundle.version === 1
-            ? activeRunHasIncompleteEvidence(bundle.setup, bundle.submissions, bundle.photoRows, bundle.issues)
-            : bundle.qaType === 'paving' && bundle.version === 2
+          : bundle.qaType === 'paving'
               ? v2RunHasIncompleteEvidence(bundle.setup, bundle.submissions, bundle.photoRows, bundle.issues)
               : true;
 

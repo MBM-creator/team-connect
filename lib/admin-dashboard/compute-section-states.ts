@@ -2,7 +2,6 @@ import { computeV2SectionUiStates } from '@/lib/paving-qa-v2-graph';
 import { computeIrrigationSectionUiStates } from '@/lib/irrigation-qa-v1-graph';
 import { computeFencingSectionUiStates } from '@/lib/fencing-qa-v1-graph';
 import { computeSignoffSectionUiStates } from '@/lib/signoff-qa-v1-graph';
-import { activeRunHasIncompleteEvidence } from '@/lib/paving-qa-v1-graph';
 import { v2RunHasIncompleteEvidence } from '@/lib/paving-qa-v2-graph';
 import { irrigationRunHasIncompleteEvidence } from '@/lib/irrigation-qa-v1-graph';
 import { fencingRunHasIncompleteEvidence } from '@/lib/fencing-qa-v1-graph';
@@ -106,10 +105,10 @@ export function bundleHasIncompleteEvidence(bundle: Extract<QaRunBundle, { ok: t
   if (bundle.qaType === 'sign_off') {
     return signoffRunHasIncompleteEvidence(bundle.setup, bundle.submissions, bundle.photoRows, bundle.issues);
   }
-  if (bundle.version === 2) {
+  if (bundle.qaType === 'paving' && bundle.version === 2) {
     return v2RunHasIncompleteEvidence(bundle.setup, bundle.submissions, bundle.photoRows, bundle.issues);
   }
-  return activeRunHasIncompleteEvidence(bundle.setup, bundle.submissions, bundle.photoRows, bundle.issues);
+  return false;
 }
 
 export function countMissingEvidenceSections(states: GenericSectionState[]): number {

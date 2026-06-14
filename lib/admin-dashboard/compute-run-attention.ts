@@ -1,4 +1,4 @@
-import { BLOCKING_ISSUE_STATUSES } from '@/lib/paving-qa-v1-graph';
+import { BLOCKING_ISSUE_STATUSES } from '@/lib/qa-evidence-graph';
 import type { QaType } from '@/lib/qa-run-bundle';
 import {
   bundleHasIncompleteEvidence,

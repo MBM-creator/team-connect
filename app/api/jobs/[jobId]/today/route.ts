@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { guardStaffApi } from '@/lib/guard-staff-api';
 import { loadQaRunBundle } from '@/lib/qa-run-bundle';
-import { activeRunHasIncompleteEvidence } from '@/lib/paving-qa-v1-graph';
 import { v2RunHasIncompleteEvidence } from '@/lib/paving-qa-v2-graph';
 import { irrigationRunHasIncompleteEvidence } from '@/lib/irrigation-qa-v1-graph';
 import { fencingRunHasIncompleteEvidence } from '@/lib/fencing-qa-v1-graph';
@@ -329,16 +328,7 @@ export async function GET(
         );
         warningMessage =
           'Supervisor sign-off evidence is incomplete. Review the sign-off run before completing today\'s report.';
-      } else if (bundle.ok && bundle.qaType === 'paving' && bundle.version === 1) {
-        hasIncomplete = activeRunHasIncompleteEvidence(
-          bundle.setup,
-          bundle.submissions,
-          bundle.photoRows,
-          bundle.issues
-        );
-        warningMessage =
-          'An active paving QA run still has incomplete required evidence. You can submit end of day, but finish QA when possible.';
-      } else if (bundle.ok && bundle.qaType === 'paving' && bundle.version === 2) {
+      } else if (bundle.ok && bundle.qaType === 'paving') {
         hasIncomplete = v2RunHasIncompleteEvidence(
           bundle.setup,
           bundle.submissions,

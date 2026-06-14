@@ -13,7 +13,7 @@ import {
   type IssueSnapshot,
   type PhotoCounts,
   type SubmissionSnapshot,
-} from './paving-qa-v1-graph';
+} from './qa-evidence-graph';
 
 export type { IssueSnapshot, SubmissionSnapshot };
 
