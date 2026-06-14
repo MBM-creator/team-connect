@@ -1,4 +1,4 @@
-import { TERMINAL_ISSUE_STATUSES } from '@/lib/paving-qa-v1-graph';
+import { TERMINAL_ISSUE_STATUSES } from '@/lib/qa-evidence-graph';
 import type { QaType } from '@/lib/qa-run-bundle';
 import { isInRange } from './dates';
 import { qaRunPath, qaSupervisorPath } from './qa-links';

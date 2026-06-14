@@ -1,4 +1,4 @@
-import { BLOCKING_ISSUE_STATUSES, TERMINAL_ISSUE_STATUSES } from '@/lib/paving-qa-v1-graph';
+import { BLOCKING_ISSUE_STATUSES, TERMINAL_ISSUE_STATUSES } from '@/lib/qa-evidence-graph';
 import { isInRange } from './dates';
 import type { SupervisorActivityRow, SupervisorActivityStatus } from './types';
 

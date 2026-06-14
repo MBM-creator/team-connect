@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateJobForOrg, isValidUuid } from '@/lib/job-org-validation';
 import { guardStaffApi } from '@/lib/guard-staff-api';
-import { loadRunBundle, computeRunSectionStates } from '@/lib/paving-qa-run-bundle';
 import { loadQaRunBundle } from '@/lib/qa-run-bundle';
 import { computeV2SectionUiStates } from '@/lib/paving-qa-v2-graph';
 import { computeIrrigationSectionUiStates } from '@/lib/irrigation-qa-v1-graph';
@@ -42,7 +41,11 @@ export async function GET(
   }
 
   const typedBundle = await loadQaRunBundle(runId, jobId);
-  if (typedBundle.ok && typedBundle.qaType === 'irrigation') {
+  if (!typedBundle.ok) {
+    return jsonError('Run not found', 404, requestId);
+  }
+
+  if (typedBundle.qaType === 'irrigation') {
     const sectionStates = computeIrrigationSectionUiStates(
       typedBundle.setup,
       typedBundle.submissions,
@@ -65,7 +68,7 @@ export async function GET(
     return res;
   }
 
-  if (typedBundle.ok && typedBundle.qaType === 'fencing') {
+  if (typedBundle.qaType === 'fencing') {
     const sectionStates = computeFencingSectionUiStates(
       typedBundle.setup,
       typedBundle.submissions,
@@ -88,7 +91,7 @@ export async function GET(
     return res;
   }
 
-  if (typedBundle.ok && typedBundle.qaType === 'sign_off') {
+  if (typedBundle.qaType === 'sign_off') {
     const sectionStates = computeSignoffSectionUiStates(
       typedBundle.setup,
       typedBundle.submissions,
@@ -111,54 +114,23 @@ export async function GET(
     return res;
   }
 
-  const bundle = await loadRunBundle(runId, jobId);
-  if (!bundle.ok) {
-    return jsonError('Run not found', 404, requestId);
-  }
-
-  if (bundle.version === 2) {
-    const sectionStates = computeV2SectionUiStates(
-      bundle.setup,
-      bundle.submissions,
-      bundle.photoRows,
-      bundle.issues
-    );
-    const res = NextResponse.json({
-      ok: true,
-      job: v.job,
-      run: bundle.run,
-      qaType: 'paving',
-      setupVersion: 2,
-      setup: bundle.setup,
-      sectionStates,
-      issues: bundle.issues,
-      submissions: bundle.submissions,
-      // photoRows lets the section page show per-item photo counts without an extra round-trip
-      photoRows: bundle.photoRows,
-    });
-    res.headers.set('x-request-id', requestId);
-    return res;
-  }
-
-  // v1 path — compute section states using existing graph
-  const sectionStates = computeRunSectionStates(
-    bundle.setup,
-    bundle.submissions,
-    bundle.photoRows,
-    bundle.issues
+  const sectionStates = computeV2SectionUiStates(
+    typedBundle.setup,
+    typedBundle.submissions,
+    typedBundle.photoRows,
+    typedBundle.issues
   );
-
   const res = NextResponse.json({
     ok: true,
     job: v.job,
-    run: bundle.run,
+    run: typedBundle.run,
     qaType: 'paving',
-    setupVersion: 1,
-    setup: bundle.setup,
+    setupVersion: 2,
+    setup: typedBundle.setup,
     sectionStates,
-    issues: bundle.issues,
-    submissions: bundle.submissions,
-    photoRows: bundle.photoRows,
+    issues: typedBundle.issues,
+    submissions: typedBundle.submissions,
+    photoRows: typedBundle.photoRows,
   });
   res.headers.set('x-request-id', requestId);
   return res;

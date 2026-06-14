@@ -174,7 +174,6 @@ export default function TodaysWorkPage() {
     null;
   const latestApprovedRun =
     currentRuns.find((run) => run.status === 'completed' && run.supervisor_final_approved_at) ?? null;
-  const hasLegacyRuns = runs.some((run) => run.setup_version !== 2 && run.qa_type !== 'irrigation' && run.qa_type !== 'fencing');
   const qaHubHref = `/t/${orgSlug}/jobs/${jobId}/qa`;
   const detailHref = `/t/${orgSlug}/jobs/${jobId}`;
 
@@ -277,15 +276,6 @@ export default function TodaysWorkPage() {
                 <p className="mt-1 text-gray-700">
                   No QA checklist has been started for this stage.
                 </p>
-                {hasLegacyRuns && viewerRole !== 'field' && (
-                  <p className="mt-2 text-sm text-amber-800">
-                    Older QA records exist.{' '}
-                    <Link href={qaHubHref} className="font-medium text-[#698F00] hover:underline">
-                      View history in the QA hub
-                    </Link>
-                    .
-                  </p>
-                )}
                 <Link
                   href={qaHubHref}
                   className="mt-4 block w-full rounded-lg bg-[#698F00] px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[#5a7d00] sm:inline-block sm:w-auto"

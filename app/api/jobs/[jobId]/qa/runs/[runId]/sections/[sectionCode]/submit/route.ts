@@ -2,15 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { validateJobForOrg, normalizeSupabaseError, isValidUuid } from '@/lib/job-org-validation';
 import { guardStaffApi } from '@/lib/guard-staff-api';
-import { applicableSectionCodes, getSectionItemsForSetup, parseRunSetup } from '@/lib/paving-qa-v1-catalog';
 import {
-  buildPhotoCounts,
-  buildSubmissionMap,
-  canSubmitSection,
-  isPavingSectionCode,
   type IssueSnapshot,
   type SubmissionSnapshot,
-} from '@/lib/paving-qa-v1-graph';
+} from '@/lib/qa-evidence-graph';
 import {
   getApplicableV2SectionCodes,
   getV2SectionDefinition,
@@ -45,9 +40,8 @@ import { computeV2SectionUiStates } from '@/lib/paving-qa-v2-graph';
 import { computeIrrigationSectionUiStates } from '@/lib/irrigation-qa-v1-graph';
 import { computeFencingSectionUiStates } from '@/lib/fencing-qa-v1-graph';
 import { computeSignoffSectionUiStates } from '@/lib/signoff-qa-v1-graph';
-import { validateCrewSectionPayload, validateCrewSectionPayloadIrrigation, validateCrewSectionPayloadV2 } from '@/lib/paving-qa-submit-validation';
+import { validateCrewSectionPayloadIrrigation, validateCrewSectionPayloadV2 } from '@/lib/paving-qa-submit-validation';
 import { newImageStorageFileName, pavingQaPhotoStoragePath, qaEvidencePhotoStoragePath } from '@/lib/storage-paths';
-import type { PavingSectionCode } from '@/lib/paving-qa-v1-types';
 import { randomUUID } from 'crypto';
 
 export const runtime = 'nodejs';
@@ -307,172 +301,7 @@ export async function POST(
     );
   }
 
-  // -------------------------------------------------------------------------
-  // V1 path (unchanged)
-  // -------------------------------------------------------------------------
-  const sectionCode = sectionCodeRaw as PavingSectionCode;
-
-  if (!isPavingSectionCode(sectionCodeRaw)) {
-    return jsonError('Unknown section', 400, requestId);
-  }
-
-  const setup = parseRunSetup(run.setup);
-  if (!setup) return serverError(requestId, 'Invalid run setup');
-
-  if (!applicableSectionCodes(setup).includes(sectionCode)) {
-    return jsonError('Section is not part of this run', 400, requestId);
-  }
-
-  const { submissions, issues, photoRows } = await loadSubmissionsAndIssues(runId);
-  const bySection = buildSubmissionMap(submissions);
-  const photoCountsAll = buildPhotoCounts(photoRows);
-  const can = canSubmitSection(sectionCode, setup, bySection, photoCountsAll, issues);
-  if (!can.ok) {
-    return conflictError(can.message, { code: can.code, blockedBy: can.blockedBy }, requestId);
-  }
-
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
-    return jsonError('Failed to parse request body', 400, requestId);
-  }
-
-  const answersRaw = String(formData.get('answers') ?? '').trim();
-  let answers: Record<string, { result?: string; note?: string }> = {};
-  if (answersRaw) {
-    try {
-      const parsed = JSON.parse(answersRaw) as unknown;
-      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        answers = parsed as Record<string, { result?: string; note?: string }>;
-      }
-    } catch {
-      return jsonError('answers must be valid JSON', 400, requestId);
-    }
-  }
-
-  const filesByItem = new Map<string, File[]>();
-  for (const [key, val] of formData.entries()) {
-    if (key.startsWith('item_') && val instanceof File && val.size > 0) {
-      const itemKey = key.slice('item_'.length);
-      if (!itemKey) continue;
-      const list = filesByItem.get(itemKey) ?? [];
-      list.push(val);
-      filesByItem.set(itemKey, list);
-    }
-  }
-
-  const items = getSectionItemsForSetup(sectionCode, setup);
-  const photoCountByItem: Record<string, number> = {};
-  let totalNewFiles = 0;
-  for (const item of items) {
-    const existing = [...photoRows].filter((p) => p.section_code === sectionCode && p.item_key === item.key).length;
-    const incoming = filesByItem.get(item.key)?.length ?? 0;
-    photoCountByItem[item.key] = existing + incoming;
-    totalNewFiles += incoming;
-  }
-
-  if (totalNewFiles > MAX_PHOTOS_PER_SECTION) {
-    return jsonError(`At most ${MAX_PHOTOS_PER_SECTION} new photos per submit`, 400, requestId);
-  }
-  for (const [, files] of filesByItem) {
-    for (const file of files) {
-      if (file.size > MAX_FILE_BYTES) return jsonError('Each photo must be at most 8MB', 400, requestId);
-      const mt = (file.type || 'image/jpeg').toLowerCase();
-      if (!ALLOWED_MIME.has(mt)) return jsonError(`Unsupported image type: ${mt}`, 400, requestId);
-    }
-  }
-
-  if (isUploadOnlyRequest(request)) {
-    return handleUploadOnlyPhotos(
-      runId,
-      sectionCode,
-      jobId,
-      v.job.name,
-      filesByItem,
-      staffAuth.staff.id,
-      requestId,
-      'paving'
-    );
-  }
-
-  const payloadCheck = validateCrewSectionPayload(setup, sectionCode, answers, photoCountByItem);
-  if (!payloadCheck.ok) {
-    return NextResponse.json({ ok: false, message: 'Validation failed', errors: payloadCheck.errors }, { status: 400 });
-  }
-
-  const submittedAt = new Date().toISOString();
-
-  const photoErr = await uploadSectionPhotos(
-    runId,
-    sectionCode,
-    jobId,
-    v.job.name,
-    filesByItem,
-    staffAuth.staff.id,
-    requestId,
-    filesByItem.size > 0
-  );
-  if (photoErr) return photoErr;
-
-  const { error: upsertErr } = await supabaseAdmin.from('paving_qa_section_submissions').upsert(
-    {
-      run_id: runId,
-      section_code: sectionCode,
-      submission_status: 'submitted',
-      answers,
-      submitted_at: submittedAt,
-      submitted_by: staffAuth.staff.id,
-      updated_at: submittedAt,
-    },
-    { onConflict: 'run_id,section_code' }
-  );
-  if (upsertErr) {
-    console.error('[qa/submit v1] submission', { requestId, error: normalizeSupabaseError(upsertErr) });
-    return serverError(requestId, 'Failed to save submission');
-  }
-
-  // Issue management (v1)
-  for (const item of items) {
-    const r = (answers[item.key]?.result ?? '').trim();
-    if (r === 'pass' || r === 'na') {
-      await supabaseAdmin
-        .from('paving_qa_issues')
-        .delete()
-        .eq('run_id', runId)
-        .eq('section_code', sectionCode)
-        .eq('item_key', item.key)
-        .in('status', ['open', 'evidence_requested']);
-    }
-  }
-  for (const item of items) {
-    const r = (answers[item.key]?.result ?? '').trim();
-    if (r !== 'fail') continue;
-    const { data: existingBlocking } = await supabaseAdmin
-      .from('paving_qa_issues').select('id')
-      .eq('run_id', runId).eq('section_code', sectionCode).eq('item_key', item.key)
-      .in('status', ['open', 'rectification_required', 'evidence_requested']).limit(1).maybeSingle();
-    if (existingBlocking) continue;
-    if (item.criticalOnFail) {
-      await supabaseAdmin.from('paving_qa_issues').insert({
-        run_id: runId, section_code: sectionCode, item_key: item.key,
-        severity: 'critical', status: 'open', title: item.label,
-        detail: (answers[item.key]?.note ?? '').trim() || null,
-      });
-    } else if (item.requireSupervisorOnFail) {
-      await supabaseAdmin.from('paving_qa_issues').insert({
-        run_id: runId, section_code: sectionCode, item_key: item.key,
-        severity: 'non_critical', status: 'open', title: item.label,
-        detail: (answers[item.key]?.note ?? '').trim() || null,
-      });
-    }
-  }
-
-  await supabaseAdmin.from('paving_qa_runs').update({ updated_at: submittedAt }).eq('id', runId);
-
-  const res = NextResponse.json({ ok: true, submittedAt, actorDisplay: staffAuth.staff.full_name, sectionCode });
-  res.headers.set('x-request-id', requestId);
-  return res;
+  return jsonError('Legacy paving QA runs are no longer supported', 409, requestId);
 }
 
 // ---------------------------------------------------------------------------

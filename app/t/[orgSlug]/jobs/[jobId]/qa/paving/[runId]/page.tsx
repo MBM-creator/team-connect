@@ -3,8 +3,6 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { getSectionDef } from '@/lib/paving-qa-v1-catalog';
-import type { PavingSectionCode } from '@/lib/paving-qa-v1-types';
 import type { PavingQaSetupV2 } from '@/lib/paving-qa-v2-types';
 import {
   PAVING_INSTALL_METHOD_LABELS_V2,
@@ -20,17 +18,6 @@ import {
 } from '@/lib/qa-section-card-style';
 import { QaSectionCard } from '@/components/QaSectionCard';
 
-interface SectionState {
-  section: PavingSectionCode;
-  applicable: boolean;
-  crewSubmittedAt: string | null;
-  submissionStatus: string | null;
-  cleared: boolean;
-  clearReasons: string[];
-  canSubmit: boolean;
-  blockedBy: { section: string; reason: string }[] | null;
-}
-
 interface JobContext {
   cc_project_id?: string | null;
   cc_client_id?: string | null;
@@ -44,10 +31,8 @@ export default function PavingQaRunOverviewPage() {
   const jobId = (params?.jobId as string) ?? '';
   const runId = (params?.runId as string) ?? '';
 
-  const [setupVersion, setSetupVersion] = useState<number | null>(null);
-  const [setupV2, setSetupV2] = useState<PavingQaSetupV2 | null>(null);
-  const [sectionStates, setSectionStates] = useState<SectionState[]>([]);
-  const [v2SectionStates, setV2SectionStates] = useState<V2SectionUiState[]>([]);
+  const [setup, setSetup] = useState<PavingQaSetupV2 | null>(null);
+  const [sectionStates, setSectionStates] = useState<V2SectionUiState[]>([]);
   const [job, setJob] = useState<JobContext | null>(null);
   const [runStatus, setRunStatus] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -66,13 +51,10 @@ export default function PavingQaRunOverviewPage() {
         }
         setJob(d.job && typeof d.job === 'object' ? d.job : null);
         setRunStatus(String(d.run?.status ?? ''));
-        setSetupVersion(typeof d.setupVersion === 'number' ? d.setupVersion : null);
-        if (d.setupVersion === 2 && d.setup && typeof d.setup === 'object') {
-          setSetupV2(d.setup as PavingQaSetupV2);
-          setV2SectionStates(Array.isArray(d.sectionStates) ? (d.sectionStates as V2SectionUiState[]) : []);
-        } else {
-          setSectionStates(Array.isArray(d.sectionStates) ? d.sectionStates : []);
+        if (d.setup && typeof d.setup === 'object') {
+          setSetup(d.setup as PavingQaSetupV2);
         }
+        setSectionStates(Array.isArray(d.sectionStates) ? (d.sectionStates as V2SectionUiState[]) : []);
         setError(null);
       })
       .catch(() => {
@@ -95,11 +77,9 @@ export default function PavingQaRunOverviewPage() {
 
         <div className="flex items-center gap-3 mt-2">
           <h1 className="text-2xl font-bold text-gray-900">QA run</h1>
-          {setupVersion === 2 && (
-            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#698F00]/10 text-[#698F00] border border-[#698F00]/20">
-              Paving QA v2
-            </span>
-          )}
+          <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#698F00]/10 text-[#698F00] border border-[#698F00]/20">
+            Paving QA v2
+          </span>
         </div>
 
         <p className="text-sm text-gray-600 mt-1">Status: {runStatus || '…'}</p>
@@ -117,80 +97,14 @@ export default function PavingQaRunOverviewPage() {
         )}
         {loading && <p className="mt-4 text-gray-600">Loading…</p>}
 
-        {!loading && !error && setupVersion === 2 && setupV2 && (
+        {!loading && !error && setup && (
           <V2RunOverview
-            setup={setupV2}
-            sectionStates={v2SectionStates}
+            setup={setup}
+            sectionStates={sectionStates}
             orgSlug={orgSlug}
             jobId={jobId}
             runId={runId}
           />
-        )}
-
-        {!loading && !error && setupVersion !== 2 && (
-          <>
-            <div className="mt-4 flex gap-3">
-              <Link
-                href={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}/supervisor`}
-                className="text-sm font-medium text-[#698F00] hover:underline"
-              >
-                Supervisor
-              </Link>
-            </div>
-
-            <ul className="mt-6 space-y-2">
-              {(() => {
-                const activeSectionCode = findActiveQaSectionCode(sectionStates, (s) => s.section);
-                return sectionStates.map((s) => {
-                const def = getSectionDef(s.section);
-                const title = def?.title ?? s.section;
-                const cardTone = resolveQaSectionCardTone({
-                  cleared: s.cleared,
-                  activated: Boolean(s.crewSubmittedAt || s.submissionStatus),
-                  isActiveStep: s.section === activeSectionCode,
-                });
-                return (
-                  <QaSectionCard key={s.section} tone={cardTone}>
-                    <div className="flex flex-wrap justify-between gap-2">
-                      <span className="font-medium text-gray-900">{title}</span>
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        {s.crewSubmittedAt && (
-                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800">Crew submitted</span>
-                        )}
-                        {s.cleared ? (
-                          <span className="px-2 py-0.5 rounded bg-green-50 text-green-800">Cleared</span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-900">Not cleared</span>
-                        )}
-                        {!s.canSubmit && s.blockedBy && s.blockedBy.length > 0 && (
-                          <span className="px-2 py-0.5 rounded bg-red-50 text-red-800">Blocked</span>
-                        )}
-                      </div>
-                    </div>
-                    {!s.canSubmit && s.blockedBy && s.blockedBy.length > 0 && (
-                      <p className="mt-2 text-sm text-red-800">
-                        {s.blockedBy.map((b) => b.reason).filter((x, i, a) => a.indexOf(x) === i).join(' · ')}
-                      </p>
-                    )}
-                    {!s.cleared && s.clearReasons.length > 0 && (
-                      <ul className="mt-2 text-xs text-gray-600 list-disc pl-4">
-                        {s.clearReasons.slice(0, 4).map((r) => (
-                          <li key={r}>{r}</li>
-                        ))}
-                      </ul>
-                    )}
-                    <Link
-                      href={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}/${encodeURIComponent(s.section)}`}
-                      className="mt-3 inline-block text-sm text-[#698F00] font-medium hover:underline"
-                    >
-                      Open section →
-                    </Link>
-                  </QaSectionCard>
-                );
-              });
-              })()}
-            </ul>
-          </>
         )}
       </div>
     </div>
@@ -228,7 +142,6 @@ function V2RunOverview({
 
   return (
     <div className="mt-6 space-y-4">
-      {/* Setup summary card */}
       <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm space-y-3">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Setup summary</h2>
 
@@ -277,7 +190,6 @@ function V2RunOverview({
         </dl>
       </div>
 
-      {/* other_mixed notice */}
       {otherMixed && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
           <p className="font-semibold">Supervisor review required</p>
@@ -288,7 +200,6 @@ function V2RunOverview({
         </div>
       )}
 
-      {/* Section list */}
       <div>
         <h2 className="text-sm font-semibold text-gray-700 mb-2">
           Applicable QA sections ({sectionStates.length})
@@ -322,7 +233,6 @@ function V2RunOverview({
                   </span>
                 </div>
 
-                {/* Blocked reasons */}
                 {s.status === 'blocked' && s.blockedBy && s.blockedBy.length > 0 && (
                   <ul className="mt-2 text-xs text-amber-800 list-disc pl-10 space-y-0.5">
                     {s.blockedBy.map((b) => (
@@ -331,7 +241,6 @@ function V2RunOverview({
                   </ul>
                 )}
 
-                {/* Clear reasons (submitted but not cleared) */}
                 {s.status === 'submitted' && s.clearReasons.length > 0 && (
                   <ul className="mt-2 text-xs text-gray-600 list-disc pl-10 space-y-0.5">
                     {s.clearReasons.slice(0, 4).map((r) => (
@@ -340,7 +249,6 @@ function V2RunOverview({
                   </ul>
                 )}
 
-                {/* Issue notice */}
                 {s.status === 'issue_raised' && (
                   <p className="mt-2 text-xs text-red-700 pl-9">
                     This section has an unresolved issue. Supervisor action required.

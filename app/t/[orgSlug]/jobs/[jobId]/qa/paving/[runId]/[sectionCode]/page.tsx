@@ -2,13 +2,8 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-// V1 imports
-import { getSectionItemsForSetup, parseRunSetup, getSectionDef } from '@/lib/paving-qa-v1-catalog';
-import type { PavingQaSetup, PavingSectionCode } from '@/lib/paving-qa-v1-types';
-
-// V2 imports
 import { getV2SectionDefinition, getV2SectionItemsForSetup, isV2SectionCode, type PavingSectionCodeV2 } from '@/lib/paving-qa-v2-catalog';
 import type { PavingQaSetupV2 } from '@/lib/paving-qa-v2-types';
 import type { V2CatalogueItem } from '@/lib/paving-qa-v2-catalog';
@@ -111,244 +106,6 @@ function NewFilePreviews({ previews }: { previews: string[] }) {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// V1 section page
-// ---------------------------------------------------------------------------
-
-function V1SectionPage({
-  orgSlug,
-  jobId,
-  runId,
-  sectionCode,
-  setup,
-  sectionState,
-  runStatus,
-  initialAnswers,
-  existingPhotoCounts,
-  photosByItem,
-  photosLoaded,
-}: {
-  orgSlug: string;
-  jobId: string;
-  runId: string;
-  sectionCode: PavingSectionCode;
-  setup: PavingQaSetup;
-  sectionState: { canSubmit: boolean; blockedBy: { section: string; reason: string }[] | null } | null;
-  runStatus: string;
-  initialAnswers?: Answers;
-  existingPhotoCounts: Record<string, number>;
-  photosByItem: Record<string, V2PhotoRow[]>;
-  photosLoaded: boolean;
-}) {
-  const router = useRouter();
-  const items = useMemo(() => getSectionItemsForSetup(sectionCode, setup), [sectionCode, setup]);
-  const def = getSectionDef(sectionCode);
-  const [answers, setAnswers] = useState<Answers>(initialAnswers ?? {});
-  const [photoFiles, setPhotoFiles] = useState<Record<string, File[]>>({});
-  const [photoPreviews, setPhotoPreviews] = useState<Record<string, string[]>>({});
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Track all created object URLs so we can revoke them on unmount
-  const createdUrlsRef = useRef<string[]>([]);
-  const isReadOnly = runStatus !== 'active';
-
-  useEffect(() => {
-    return () => {
-      for (const url of createdUrlsRef.current) URL.revokeObjectURL(url);
-    };
-  }, []);
-
-  function setResult(key: string, result: string) {
-    if (isReadOnly) return;
-    setAnswers((prev) => ({ ...prev, [key]: { result, note: prev[key]?.note ?? '' } }));
-  }
-  function setNote(key: string, note: string) {
-    if (isReadOnly) return;
-    setAnswers((prev) => ({ ...prev, [key]: { result: prev[key]?.result ?? '', note } }));
-  }
-  async function addFiles(key: string, files: FileList | null) {
-    if (isReadOnly || !files?.length) return;
-    setError(null);
-    try {
-      const newFiles = await compressImagesForUpload(Array.from(files));
-      const newPreviews = newFiles.map((f) => {
-        const url = URL.createObjectURL(f);
-        createdUrlsRef.current.push(url);
-        return url;
-      });
-      setPhotoFiles((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), ...newFiles] }));
-      setPhotoPreviews((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), ...newPreviews] }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to prepare photo');
-    }
-  }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (isReadOnly) {
-      setError('This run is complete — section evidence is read-only.');
-      return;
-    }
-    if (!sectionState?.canSubmit) {
-      setError('This section is blocked until upstream work is cleared.');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    setSaved(false);
-    try {
-      const result = await submitQaSectionWithPhotos({
-        submitUrl: `/api/jobs/${jobId}/qa/runs/${runId}/sections/${encodeURIComponent(sectionCode)}/submit?orgSlug=${encodeURIComponent(orgSlug)}`,
-        answers,
-        photoFiles,
-      });
-      if (!result.ok) {
-        setError(result.errors?.join('\n') ?? result.message ?? 'Save failed');
-        return;
-      }
-      setPhotoFiles({});
-      setPhotoPreviews({});
-      setSaved(true);
-      setTimeout(() => router.push(`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}`), 1500);
-    } catch {
-      setError('Save failed');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-xl mx-auto">
-        <Link
-          href={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}`}
-          className="text-sm text-[#698F00] hover:underline"
-        >
-          ← Run overview
-        </Link>
-        <h1 className="mt-2 text-xl font-bold text-gray-900">{def?.title ?? sectionCode}</h1>
-        <p className="text-sm text-gray-500 font-mono">{sectionCode}</p>
-
-        {isReadOnly && (
-          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm">
-            This run is {runStatus || 'not active'} — evidence is read-only.
-          </div>
-        )}
-        {sectionState && !sectionState.canSubmit && sectionState.blockedBy && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-            {sectionState.blockedBy.map((b, i) => (
-              <p key={i}>
-                {b.reason}
-                {b.section ? ` (${b.section})` : ''}
-              </p>
-            ))}
-          </div>
-        )}
-        {saved && (
-          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-medium">
-            Evidence saved — returning to run overview…
-          </div>
-        )}
-        {error && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          {items.map((item) => {
-            const savedCount = photosLoaded
-              ? (photosByItem[item.key]?.length ?? 0)
-              : (existingPhotoCounts[item.key] ?? 0);
-            const loadedPhotos = photosLoaded ? (photosByItem[item.key] ?? []) : null;
-            const newPreviews = photoPreviews[item.key] ?? [];
-
-            return (
-              <div
-                key={item.key}
-                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm space-y-2"
-              >
-                <p className="text-sm font-medium text-gray-900">{item.label}</p>
-                <div className="flex flex-wrap gap-3">
-                  {(['pass', 'fail', ...(item.allowNa ? ['na'] : [])] as string[]).map((r) => (
-                    <label key={r} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name={`r-${item.key}`}
-                        checked={(answers[item.key]?.result ?? '') === r}
-                        disabled={isReadOnly}
-                        onChange={() => setResult(item.key, r)}
-                        className="accent-[#698F00]"
-                      />
-                      <span className="capitalize">{r}</span>
-                    </label>
-                  ))}
-                </div>
-                {(answers[item.key]?.result ?? '') === 'fail' && (
-                  <textarea
-                    placeholder="Note (required when failed)"
-                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                    rows={2}
-                    value={answers[item.key]?.note ?? ''}
-                    disabled={isReadOnly}
-                    onChange={(e) => setNote(item.key, e.target.value)}
-                  />
-                )}
-
-                <SavedPhotos savedCount={savedCount} loadedPhotos={loadedPhotos} />
-
-                {item.requirePhoto && (
-                  <div>
-                    <p className="text-xs text-gray-600 mb-1.5">
-                      {savedCount > 0 ? 'Add more photos (optional)' : 'Photos'}
-                    </p>
-                    <label
-                      className={`inline-flex items-center gap-2 py-1.5 px-3 rounded-lg border text-sm font-medium transition-colors ${
-                        isReadOnly
-                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-                          : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer'
-                      }`}
-                    >
-                      <svg className="w-4 h-4 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {newPreviews.length > 0
-                        ? `${newPreviews.length} photo${newPreviews.length !== 1 ? 's' : ''} selected`
-                        : 'Choose photos'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        disabled={isReadOnly}
-                        className="sr-only"
-                        onChange={(e) => addFiles(item.key, e.target.files)}
-                      />
-                    </label>
-                    <NewFilePreviews previews={newPreviews} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          <button
-            type="submit"
-            disabled={saving || isReadOnly || !sectionState?.canSubmit}
-            className="w-full bg-[#698F00] text-white py-2 rounded-lg font-medium disabled:bg-gray-400"
-          >
-            {saving ? 'Saving…' : 'Submit section evidence'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// V2 section page
-// ---------------------------------------------------------------------------
 
 type V2SubmissionMeta = { status: string; submittedAt: string | null } | null;
 
@@ -687,24 +444,13 @@ export default function PavingQaSectionPage() {
   const runId = (params?.runId as string) ?? '';
   const sectionCodeRaw = decodeURIComponent((params?.sectionCode as string) ?? '');
 
-  const [setupVersion, setSetupVersion] = useState<number | null>(null);
-  const [v1Setup, setV1Setup] = useState<PavingQaSetup | null>(null);
-  const [v1SectionStates, setV1SectionStates] = useState<
-    { section: string; canSubmit: boolean; blockedBy: { section: string; reason: string }[] | null }[]
-  >([]);
-  const [v1InitialAnswers, setV1InitialAnswers] = useState<Answers>({});
-  const [v1ExistingPhotoCounts, setV1ExistingPhotoCounts] = useState<Record<string, number>>({});
-  const [v1PhotosByItem, setV1PhotosByItem] = useState<Record<string, V2PhotoRow[]>>({});
-  const [v1PhotosLoaded, setV1PhotosLoaded] = useState(false);
-
-  const [v2Items, setV2Items] = useState<V2CatalogueItem[]>([]);
-  const [v2SectionStates, setV2SectionStates] = useState<V2SectionUiState[]>([]);
-  const [v2InitialAnswers, setV2InitialAnswers] = useState<Answers>({});
-  const [v2SubmissionMeta, setV2SubmissionMeta] = useState<V2SubmissionMeta>(null);
-  const [v2ExistingPhotoCounts, setV2ExistingPhotoCounts] = useState<Record<string, number>>({});
-  const [v2PhotosByItem, setV2PhotosByItem] = useState<Record<string, V2PhotoRow[]>>({});
-  const [v2PhotosLoaded, setV2PhotosLoaded] = useState(false);
-
+  const [items, setItems] = useState<V2CatalogueItem[]>([]);
+  const [sectionStates, setSectionStates] = useState<V2SectionUiState[]>([]);
+  const [initialAnswers, setInitialAnswers] = useState<Answers>({});
+  const [submissionMeta, setSubmissionMeta] = useState<V2SubmissionMeta>(null);
+  const [existingPhotoCounts, setExistingPhotoCounts] = useState<Record<string, number>>({});
+  const [photosByItem, setPhotosByItem] = useState<Record<string, V2PhotoRow[]>>({});
+  const [photosLoaded, setPhotosLoaded] = useState(false);
   const [runStatus, setRunStatus] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -715,10 +461,8 @@ export default function PavingQaSectionPage() {
 
     void (async () => {
       setLoading(true);
-      setV2PhotosByItem({});
-      setV2PhotosLoaded(false);
-      setV1PhotosByItem({});
-      setV1PhotosLoaded(false);
+      setPhotosByItem({});
+      setPhotosLoaded(false);
 
       try {
         const r = await fetch(
@@ -732,144 +476,80 @@ export default function PavingQaSectionPage() {
         }
 
         setRunStatus(String(d.run?.status ?? ''));
-        const ver = typeof d.setupVersion === 'number' ? d.setupVersion : null;
-        setSetupVersion(ver);
 
-        if (ver === 2) {
-          if (isV2SectionCode(sectionCodeRaw)) {
-            const setup = d.setup as PavingQaSetupV2 | undefined;
-            if (setup?.area_uses?.length) {
-              setV2Items(getV2SectionItemsForSetup(sectionCodeRaw as PavingSectionCodeV2, setup));
-            } else {
-              const def = getV2SectionDefinition(sectionCodeRaw as PavingSectionCodeV2);
-              setV2Items(def?.items ?? []);
-            }
-          }
-          setV2SectionStates(
-            Array.isArray(d.sectionStates) ? (d.sectionStates as V2SectionUiState[]) : []
-          );
-
-          // Pre-populate answers from any existing submission for this section
-          const subs = Array.isArray(d.submissions) ? d.submissions : [];
-          const mine = subs.find(
-            (x: { section_code: string }) => x.section_code === sectionCodeRaw
-          ) as
-            | {
-                section_code: string;
-                submission_status?: string;
-                answers?: unknown;
-                submitted_at?: string | null;
-              }
-            | undefined;
-
-          if (
-            mine?.answers &&
-            typeof mine.answers === 'object' &&
-            !Array.isArray(mine.answers)
-          ) {
-            const next: Answers = {};
-            for (const [k, val] of Object.entries(
-              mine.answers as Record<string, { result?: string; note?: string }>
-            )) {
-              next[k] = { result: String(val?.result ?? ''), note: String(val?.note ?? '') };
-            }
-            setV2InitialAnswers(next);
+        if (isV2SectionCode(sectionCodeRaw)) {
+          const setup = d.setup as PavingQaSetupV2 | undefined;
+          if (setup?.area_uses?.length) {
+            setItems(getV2SectionItemsForSetup(sectionCodeRaw as PavingSectionCodeV2, setup));
           } else {
-            setV2InitialAnswers({});
+            const def = getV2SectionDefinition(sectionCodeRaw as PavingSectionCodeV2);
+            setItems(def?.items ?? []);
           }
-
-          setV2SubmissionMeta(
-            mine
-              ? {
-                  status: String(mine.submission_status ?? ''),
-                  submittedAt: mine.submitted_at ? String(mine.submitted_at) : null,
-                }
-              : null
-          );
-
-          // Build per-item photo counts for the current section from the run-level photoRows
-          const allPhotoRows = Array.isArray(d.photoRows)
-            ? (d.photoRows as { section_code: string; item_key: string }[])
-            : [];
-          const counts: Record<string, number> = {};
-          for (const row of allPhotoRows) {
-            if (row.section_code === sectionCodeRaw) {
-              counts[row.item_key] = (counts[row.item_key] ?? 0) + 1;
-            }
-          }
-          setV2ExistingPhotoCounts(counts);
-
-          // Non-blocking: load signed photo URLs after the form is visible
-          fetch(
-            `/api/jobs/${jobId}/qa/runs/${runId}/sections/${encodeURIComponent(sectionCodeRaw)}/photos?orgSlug=${encodeURIComponent(orgSlug)}`
-          )
-            .then((pr) => pr.json())
-            .then((pd: { ok?: boolean; photos?: V2PhotoRow[] }) => {
-              if (cancelled || !pd?.ok) return;
-              const byItem: Record<string, V2PhotoRow[]> = {};
-              for (const photo of pd.photos ?? []) {
-                if (!byItem[photo.item_key]) byItem[photo.item_key] = [];
-                byItem[photo.item_key].push(photo);
-              }
-              setV2PhotosByItem(byItem);
-              setV2PhotosLoaded(true);
-            })
-            .catch(() => {
-              // Graceful degradation — counts from photoRows still show, thumbnails just won't appear
-              if (!cancelled) setV2PhotosLoaded(true);
-            });
-        } else {
-          // V1 path
-          const s = parseRunSetup(d.setup);
-          setV1Setup(s);
-          setV1SectionStates(Array.isArray(d.sectionStates) ? d.sectionStates : []);
-
-          // Pre-populate answers from existing submission
-          const subs = Array.isArray(d.submissions) ? d.submissions : [];
-          const mine = subs.find(
-            (x: { section_code: string }) => x.section_code === sectionCodeRaw
-          );
-          if (mine?.answers && typeof mine.answers === 'object') {
-            const next: Answers = {};
-            for (const [k, v] of Object.entries(
-              mine.answers as Record<string, { result?: string; note?: string }>
-            )) {
-              next[k] = { result: String(v?.result ?? ''), note: String(v?.note ?? '') };
-            }
-            setV1InitialAnswers(next);
-          }
-
-          // Build per-item photo counts from photoRows (now included in v1 response)
-          const allPhotoRows = Array.isArray(d.photoRows)
-            ? (d.photoRows as { section_code: string; item_key: string }[])
-            : [];
-          const counts: Record<string, number> = {};
-          for (const row of allPhotoRows) {
-            if (row.section_code === sectionCodeRaw) {
-              counts[row.item_key] = (counts[row.item_key] ?? 0) + 1;
-            }
-          }
-          setV1ExistingPhotoCounts(counts);
-
-          // Non-blocking: load signed photo URLs for v1 saved evidence
-          fetch(
-            `/api/jobs/${jobId}/qa/runs/${runId}/sections/${encodeURIComponent(sectionCodeRaw)}/photos?orgSlug=${encodeURIComponent(orgSlug)}`
-          )
-            .then((pr) => pr.json())
-            .then((pd: { ok?: boolean; photos?: V2PhotoRow[] }) => {
-              if (cancelled || !pd?.ok) return;
-              const byItem: Record<string, V2PhotoRow[]> = {};
-              for (const photo of pd.photos ?? []) {
-                if (!byItem[photo.item_key]) byItem[photo.item_key] = [];
-                byItem[photo.item_key].push(photo);
-              }
-              setV1PhotosByItem(byItem);
-              setV1PhotosLoaded(true);
-            })
-            .catch(() => {
-              if (!cancelled) setV1PhotosLoaded(true);
-            });
         }
+        setSectionStates(Array.isArray(d.sectionStates) ? (d.sectionStates as V2SectionUiState[]) : []);
+
+        const subs = Array.isArray(d.submissions) ? d.submissions : [];
+        const mine = subs.find(
+          (x: { section_code: string }) => x.section_code === sectionCodeRaw
+        ) as
+          | {
+              section_code: string;
+              submission_status?: string;
+              answers?: unknown;
+              submitted_at?: string | null;
+            }
+          | undefined;
+
+        if (mine?.answers && typeof mine.answers === 'object' && !Array.isArray(mine.answers)) {
+          const next: Answers = {};
+          for (const [k, val] of Object.entries(
+            mine.answers as Record<string, { result?: string; note?: string }>
+          )) {
+            next[k] = { result: String(val?.result ?? ''), note: String(val?.note ?? '') };
+          }
+          setInitialAnswers(next);
+        } else {
+          setInitialAnswers({});
+        }
+
+        setSubmissionMeta(
+          mine
+            ? {
+                status: String(mine.submission_status ?? ''),
+                submittedAt: mine.submitted_at ? String(mine.submitted_at) : null,
+              }
+            : null
+        );
+
+        const allPhotoRows = Array.isArray(d.photoRows)
+          ? (d.photoRows as { section_code: string; item_key: string }[])
+          : [];
+        const counts: Record<string, number> = {};
+        for (const row of allPhotoRows) {
+          if (row.section_code === sectionCodeRaw) {
+            counts[row.item_key] = (counts[row.item_key] ?? 0) + 1;
+          }
+        }
+        setExistingPhotoCounts(counts);
+
+        fetch(
+          `/api/jobs/${jobId}/qa/runs/${runId}/sections/${encodeURIComponent(sectionCodeRaw)}/photos?orgSlug=${encodeURIComponent(orgSlug)}`
+        )
+          .then((pr) => pr.json())
+          .then((pd: { ok?: boolean; photos?: V2PhotoRow[] }) => {
+            if (cancelled || !pd?.ok) return;
+            const byItem: Record<string, V2PhotoRow[]> = {};
+            for (const photo of pd.photos ?? []) {
+              if (!byItem[photo.item_key]) byItem[photo.item_key] = [];
+              byItem[photo.item_key].push(photo);
+            }
+            setPhotosByItem(byItem);
+            setPhotosLoaded(true);
+          })
+          .catch(() => {
+            if (!cancelled) setPhotosLoaded(true);
+          });
+
         setError(null);
       } catch {
         if (!cancelled) setError('Failed to load');
@@ -905,81 +585,52 @@ export default function PavingQaSectionPage() {
     );
   }
 
-  // V2 path
-  if (setupVersion === 2) {
-    if (!isV2SectionCode(sectionCodeRaw)) {
-      return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4">
-          <Link
-            href={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}`}
-            className="text-sm text-[#698F00] hover:underline"
-          >
-            ← Run overview
-          </Link>
-          <p className="mt-4 text-red-800">Unknown v2 section code: {sectionCodeRaw}</p>
-        </div>
-      );
-    }
-    const v2Code = sectionCodeRaw as PavingSectionCodeV2;
-    const myState = v2SectionStates.find((s) => s.code === v2Code) ?? null;
-    if (!myState) {
-      return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4">
-          <Link
-            href={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}`}
-            className="text-sm text-[#698F00] hover:underline"
-          >
-            ← Run overview
-          </Link>
-          <p className="mt-4 text-amber-800">
-            Section <strong>{sectionCodeRaw}</strong> is not part of this run&apos;s setup.
-          </p>
-        </div>
-      );
-    }
-    return (
-      <V2SectionPage
-        orgSlug={orgSlug}
-        jobId={jobId}
-        runId={runId}
-        sectionCode={v2Code}
-        items={v2Items}
-        sectionState={myState}
-        runStatus={runStatus}
-        initialAnswers={v2InitialAnswers}
-        submissionMeta={v2SubmissionMeta}
-        existingPhotoCounts={v2ExistingPhotoCounts}
-        photosByItem={v2PhotosByItem}
-        photosLoaded={v2PhotosLoaded}
-      />
-    );
-  }
-
-  // V1 path
-  if (!v1Setup) {
+  if (!isV2SectionCode(sectionCodeRaw)) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4">
-        <p className="text-red-800">Invalid run.</p>
+        <Link
+          href={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}`}
+          className="text-sm text-[#698F00] hover:underline"
+        >
+          ← Run overview
+        </Link>
+        <p className="mt-4 text-red-800">Unknown section code: {sectionCodeRaw}</p>
       </div>
     );
   }
 
-  const v1Code = sectionCodeRaw as PavingSectionCode;
-  const myV1State = v1SectionStates.find((x) => x.section === v1Code) ?? null;
+  const sectionCode = sectionCodeRaw as PavingSectionCodeV2;
+  const myState = sectionStates.find((s) => s.code === sectionCode) ?? null;
+  if (!myState) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <Link
+          href={`/t/${orgSlug}/jobs/${jobId}/qa/paving/${runId}`}
+          className="text-sm text-[#698F00] hover:underline"
+        >
+          ← Run overview
+        </Link>
+        <p className="mt-4 text-amber-800">
+          Section <strong>{sectionCodeRaw}</strong> is not part of this run&apos;s setup.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <V1SectionPage
+    <V2SectionPage
       orgSlug={orgSlug}
       jobId={jobId}
       runId={runId}
-      sectionCode={v1Code}
-      setup={v1Setup}
-      sectionState={myV1State}
+      sectionCode={sectionCode}
+      items={items}
+      sectionState={myState}
       runStatus={runStatus}
-      initialAnswers={v1InitialAnswers}
-      existingPhotoCounts={v1ExistingPhotoCounts}
-      photosByItem={v1PhotosByItem}
-      photosLoaded={v1PhotosLoaded}
+      initialAnswers={initialAnswers}
+      submissionMeta={submissionMeta}
+      existingPhotoCounts={existingPhotoCounts}
+      photosByItem={photosByItem}
+      photosLoaded={photosLoaded}
     />
   );
 }
