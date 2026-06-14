@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ClientConnectJobSummary } from '@/components/ClientConnectJobSummary';
 import type { CcProject } from '@/lib/cc-client';
 import { getApplicableQaChecks } from '@/lib/cc-project-context';
@@ -13,6 +13,7 @@ import {
   activeRunForType,
   bucketHubRuns,
   currentRunActionLabel,
+  extractAttentionItemsFromRunDetail,
   formatQaDateTime,
   qaNewRunPath,
   qaRunPath,
@@ -20,6 +21,8 @@ import {
   QA_CHECK_DESCRIPTIONS,
   runDisplayStatus,
   SIGN_OFF_DESCRIPTION,
+  sortAttentionItems,
+  type QaAttentionItem,
   type QaHubRun,
 } from '@/lib/qa-hub-display';
 
@@ -43,6 +46,9 @@ export default function QaHubPage() {
   const [runsError, setRunsError] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [clientReady, setClientReady] = useState(false);
+  const [attentionItems, setAttentionItems] = useState<QaAttentionItem[]>([]);
+  const [attentionLoading, setAttentionLoading] = useState(false);
+  const [attentionLoadFailed, setAttentionLoadFailed] = useState(false);
 
   useEffect(() => {
     setClientReady(true);
@@ -87,8 +93,69 @@ export default function QaHubPage() {
   const hasCcTradeData = Boolean(ccProject);
   const applicableChecks = getApplicableQaChecks(ccProject);
   const hasTradeQaChecks = applicableChecks.length > 0;
-  const { activeRuns, historyRuns } = bucketHubRuns(runs);
-  const primaryActiveRun = activeRuns[0] ?? null;
+  const { currentRuns, historyRuns } = useMemo(() => bucketHubRuns(runs), [runs]);
+  const primaryCurrentRun = currentRuns[0] ?? null;
+
+  useEffect(() => {
+    if (!orgSlug || !jobId || !isSupervisorOrAdmin || loading || runsError || currentRuns.length === 0) {
+      setAttentionItems([]);
+      setAttentionLoading(false);
+      setAttentionLoadFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    setAttentionLoading(true);
+    setAttentionLoadFailed(false);
+    setAttentionItems([]);
+
+    Promise.allSettled(
+      currentRuns.map((run) =>
+        fetch(`/api/jobs/${jobId}/qa/runs/${run.id}?orgSlug=${encodeURIComponent(orgSlug)}`)
+          .then((response) => response.json().then((detail) => ({ run, detail, responseOk: response.ok })))
+      )
+    )
+      .then((results) => {
+        if (cancelled) return;
+
+        let anyFailed = false;
+        const items: QaAttentionItem[] = [];
+
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            anyFailed = true;
+            continue;
+          }
+          const { run, detail, responseOk } = result.value;
+          if (!responseOk || !detail?.ok) {
+            anyFailed = true;
+            continue;
+          }
+          items.push(
+            ...extractAttentionItemsFromRunDetail(detail, run, {
+              orgSlug,
+              jobId,
+            })
+          );
+        }
+
+        setAttentionItems(sortAttentionItems(items, currentRuns));
+        setAttentionLoadFailed(anyFailed);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAttentionItems([]);
+          setAttentionLoadFailed(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAttentionLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orgSlug, jobId, isSupervisorOrAdmin, loading, runsError, currentRuns]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -131,9 +198,9 @@ export default function QaHubPage() {
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-2">Current QA</h2>
-              {activeRuns.length === 0 ? (
+              {currentRuns.length === 0 ? (
                 <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <p className="text-sm text-gray-700">No active QA checklist on this job.</p>
+                  <p className="text-sm text-gray-700">No current QA checklist on this job.</p>
                   {viewerRole === 'field' && (
                     <p className="mt-2 text-sm text-gray-600">
                       Ask your site supervisor to start the checklist for this job.
@@ -142,7 +209,7 @@ export default function QaHubPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {activeRuns.map((run, index) => {
+                  {currentRuns.map((run, index) => {
                     const isPrimary = index === 0;
                     const actionLabel = currentRunActionLabel(run);
                     const runHref = qaRunPath(orgSlug, jobId, run.id, run.qa_type);
@@ -178,6 +245,57 @@ export default function QaHubPage() {
                 </div>
               )}
             </section>
+
+            {isSupervisorOrAdmin &&
+              (attentionLoading || attentionLoadFailed || attentionItems.length > 0) && (
+                <section>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-2">Supervisor attention</h2>
+                  {attentionLoading && (
+                    <p className="text-sm text-gray-600">Checking for items needing review…</p>
+                  )}
+                  {attentionLoadFailed && (
+                    <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-950">
+                      Supervisor attention could not be loaded. QA links still work.
+                    </div>
+                  )}
+                  {!attentionLoading && attentionItems.length > 0 && (
+                    <div className="space-y-3">
+                      {attentionItems.map((item) => {
+                        const cardClass =
+                          item.severity === 'issue'
+                            ? 'border-red-200 bg-red-50/40'
+                            : item.severity === 'review'
+                              ? 'border-amber-200 bg-amber-50/40'
+                              : 'border-gray-200 bg-white';
+                        return (
+                          <div
+                            key={`${item.runId}-${item.severity}-${item.title}`}
+                            className={`p-4 border rounded-lg shadow-sm ${cardClass}`}
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {qaTypeDisplayLabel(item.qaType)}
+                                </p>
+                                <p className="mt-1 text-sm font-medium text-gray-800">{item.title}</p>
+                                {item.detail && (
+                                  <p className="mt-1 text-sm text-gray-600">{item.detail}</p>
+                                )}
+                              </div>
+                              <Link
+                                href={item.href}
+                                className="inline-block w-full sm:w-auto text-center py-2 px-4 rounded-lg font-medium text-white bg-[#698F00] hover:bg-[#5a7d00] transition-colors shrink-0"
+                              >
+                                Review QA →
+                              </Link>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              )}
 
             {isSupervisorOrAdmin && (
               <section>
@@ -237,7 +355,7 @@ export default function QaHubPage() {
               <section className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                 <p className="text-sm text-gray-700">
                   New QA checklists are started by your site supervisor.
-                  {primaryActiveRun
+                  {primaryCurrentRun
                     ? ' Use Continue QA above to work on the active checklist.'
                     : ' Ask your supervisor to start the checklist for this job.'}
                 </p>
