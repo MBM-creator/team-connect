@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ClientConnectJobSummary } from '@/components/ClientConnectJobSummary';
 import { ClientConnectVariationsSummary } from '@/components/ClientConnectVariationsSummary';
-import { JobActivityFeed } from '@/components/JobActivityFeed';
+import { JobNotesEntryCard } from '@/components/JobNotesEntryCard';
 import type { CcProject } from '@/lib/cc-client';
 import { ccClientDisplayName, ccProjectPickerLabel } from '@/lib/cc-client-display';
 import { compressImageForUpload } from '@/lib/client-image-compression';
@@ -1091,6 +1091,14 @@ export default function JobDetailPage() {
               </>
             )}
 
+            <JobNotesEntryCard
+              orgSlug={orgSlug}
+              jobId={jobId}
+              variant="archive"
+              returnTo={`/t/${orgSlug}/jobs/${jobId}`}
+              showPreview
+            />
+
             <h2 className="text-lg font-semibold text-gray-900 mb-3 mt-8">
               Pre-commencement photos ({photos.length}/{MAX_PHOTOS})
             </h2>
@@ -1394,12 +1402,6 @@ export default function JobDetailPage() {
               </ul>
             )}
 
-            <JobActivityFeed
-              orgSlug={orgSlug}
-              jobId={jobId}
-              stages={stages.map((stage) => ({ id: stage.id, name: stage.name }))}
-              activeStageId={job.active_stage_id ?? null}
-            />
           </>
         )}
       </div>

@@ -7,9 +7,10 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ClientConnectJobSummary } from '@/components/ClientConnectJobSummary';
 import { DailySiteUpdatePanel } from '@/components/DailySiteUpdatePanel';
-import { JobActivityFeed } from '@/components/JobActivityFeed';
+import { JobNotesEntryCard } from '@/components/JobNotesEntryCard';
 import type { CcProject } from '@/lib/cc-client';
 import type { StaffRole } from '@/lib/daily-site-update-shared';
+import { todayReportDate } from '@/lib/report-date';
 
 interface Job {
   id: string;
@@ -297,13 +298,13 @@ export default function TodaysWorkPage() {
               formDefaultOpen={false}
             />
 
-            <JobActivityFeed
+            <JobNotesEntryCard
               orgSlug={orgSlug}
               jobId={jobId}
-              stages={stages.map((stage) => ({ id: stage.id, name: stage.name }))}
-              activeStageId={job.active_stage_id ?? null}
-              compact
-              defaultCollapsed
+              variant="capture"
+              returnTo={`/t/${orgSlug}/jobs/${jobId}/today`}
+              reportDate={todayReportDate()}
+              stageId={job.active_stage_id ?? null}
             />
           </div>
         )}
