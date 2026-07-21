@@ -91,6 +91,34 @@ Post-apply verification SQL: see [PILOT_READINESS.md](./PILOT_READINESS.md) §1.
 
 Do not run `npm run seed-pilot-workflow` against production. Seed requires `ALLOW_PILOT_SEED=true` and `SEED_TARGET=staging|local`, and refuses production URLs / `VERCEL_ENV=production`.
 
+### Pilot launch configuration (confirm before day 1)
+
+| Role | Account | Status |
+|------|---------|--------|
+| Admin / Site Operations | `steve@madebymobbs.com.au` | Confirm Site Operations access |
+| Supervisor 1 | `9nickw9@gmail.com` (Nick Walkden) | Confirm login + project access; share supervisor script |
+| Supervisor 2 | `josh02w@gmail.com` (Josh Walkden) | Confirm login + project access; share supervisor script |
+| Live jobs | Select 2–4 operational jobs (not the seed `Pilot Daily Plan Job`) | Confirm in Site Operations |
+
+Scripts: [PILOT_READINESS.md](./PILOT_READINESS.md) §6 (supervisor) and §7 (manager).
+
+### Pilot baseline (record manually before first pilot day)
+
+Do not build analytics. Capture once for week-two comparison:
+
+- Current frequency of having a written daily plan: ___
+- Approximate time spent planning: ___
+- Frequency of plan changes communicated verbally only: ___
+- Frequency of incomplete Daily Reports: ___
+- Common reasons work is not completed: ___
+- Steve’s current level of daily intervention: ___
+
+### Review cadence
+
+- **Daily:** Site Operations for No plan / Needs attention / active past-date plans / outstanding Daily Reports. Avoid intervening merely because work is still in progress.
+- **End of week one:** usage, friction, ignored fields, misunderstood actions, whether supervisors planned before leaving site. Fix blockers only.
+- **End of week two:** plan completion rate, creation timing, outcome-resolution rate, Daily Report completion, recorded plan changes, supervisor feedback, Steve’s intervention level. No new features unless the workflow is unusable.
+
 ---
 
 ## Rollback approach
