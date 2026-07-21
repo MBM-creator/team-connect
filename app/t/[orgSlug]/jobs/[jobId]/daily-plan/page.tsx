@@ -65,12 +65,28 @@ export default function DailyPlanPage() {
     setSubmitSuccess(null);
 
     Promise.all([
-      fetch(`/api/jobs/${jobId}?orgSlug=${encodeURIComponent(orgSlug)}`).then((r) =>
-        r.json().then((d) => ({ ok: r.ok, d }))
-      ),
+      fetch(`/api/jobs/${jobId}?orgSlug=${encodeURIComponent(orgSlug)}`).then(async (r) => {
+        const text = await r.text();
+        let d: Record<string, unknown> | null = null;
+        try {
+          d = text ? (JSON.parse(text) as Record<string, unknown>) : null;
+        } catch {
+          d = null;
+        }
+        return { ok: r.ok, d };
+      }),
       fetch(
         `/api/jobs/${jobId}/daily-plans?orgSlug=${encodeURIComponent(orgSlug)}&workDate=${encodeURIComponent(initialWorkDate)}`
-      ).then((r) => r.json().then((d) => ({ ok: r.ok, d }))),
+      ).then(async (r) => {
+        const text = await r.text();
+        let d: Record<string, unknown> | null = null;
+        try {
+          d = text ? (JSON.parse(text) as Record<string, unknown>) : null;
+        } catch {
+          d = null;
+        }
+        return { ok: r.ok, d };
+      }),
     ])
       .then(([jobRes, planRes]) => {
         if (cancelled) return;
