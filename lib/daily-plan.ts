@@ -48,6 +48,7 @@ const OUTCOME_SELECT = `
   completed_by:staff_profiles!job_daily_plan_outcomes_completed_by_staff_profile_id_fkey(full_name)
 `;
 
+// Use column-name FK hints: Postgres truncates constraint names on this table.
 const REPLACEMENT_SELECT = `
   id,
   plan_change_id,
@@ -62,9 +63,9 @@ const REPLACEMENT_SELECT = `
   completed_at,
   created_by_staff_profile_id,
   created_at,
-  status_updated_by:staff_profiles!job_daily_plan_replacement_outcomes_status_updated_by_staff_profile_id_fkey(full_name),
-  completed_by:staff_profiles!job_daily_plan_replacement_outcomes_completed_by_staff_profile_id_fkey(full_name),
-  created_by:staff_profiles!job_daily_plan_replacement_outcomes_created_by_staff_profile_id_fkey(full_name)
+  status_updated_by:staff_profiles!status_updated_by_staff_profile_id(full_name),
+  completed_by:staff_profiles!completed_by_staff_profile_id(full_name),
+  created_by:staff_profiles!created_by_staff_profile_id(full_name)
 `;
 
 const CHANGE_SELECT = `
