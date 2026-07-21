@@ -1,5 +1,6 @@
 'use client';
 
+import { AppBrandMark } from '@/components/AppBrandMark';
 import Link from 'next/link';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
@@ -18,6 +19,12 @@ export default function ResetPasswordPage() {
 
     async function establishSession() {
       const url = new URL(window.location.href);
+      if (url.searchParams.get('error') === 'invalid_reset_link') {
+        setError('This reset link is invalid or has expired. Request a new one.');
+        window.history.replaceState(null, '', '/auth/reset-password');
+        return;
+      }
+
       const code = url.searchParams.get('code');
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
@@ -91,7 +98,8 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white border border-gray-200 rounded-xl shadow-sm p-8">
-        <h1 className="text-2xl font-bold text-gray-900">Choose a new password</h1>
+        <AppBrandMark />
+        <h1 className="text-2xl font-bold text-gray-900 mt-2">Choose a new password</h1>
         <p className="mt-2 text-sm text-gray-600">Set a new password for your staff account.</p>
 
         {!ready && !error && <p className="mt-6 text-sm text-gray-600">Checking reset link…</p>}

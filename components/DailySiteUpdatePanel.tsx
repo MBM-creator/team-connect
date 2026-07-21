@@ -10,6 +10,8 @@ import {
   type OnTrackStatus,
   type StaffRole,
 } from '@/lib/daily-site-update-shared';
+import { DailyPlanReportSection } from '@/components/DailyPlanReportSection';
+import type { DailyPlanReportMatch } from '@/lib/daily-plan-report';
 
 interface JobSummary {
   id: string;
@@ -47,6 +49,7 @@ interface TodayBundle {
   recentUpdates?: DailySiteUpdateApiRow[];
   reportDate?: string;
   viewerRole?: StaffRole;
+  dailyPlanMatch?: DailyPlanReportMatch;
   message?: string;
 }
 
@@ -432,7 +435,6 @@ export function DailySiteUpdatePanel({
                   job={job}
                   compact
                   className="mt-1"
-                  emptyText="No Client Connect project linked."
                 />
 
                 {activeStage ? (
@@ -658,6 +660,20 @@ export function DailySiteUpdatePanel({
           </>
         )}
       </div>
+
+      {bundle?.reportDate &&
+        (bundle.viewerRole === 'supervisor' || bundle.viewerRole === 'admin') && (
+          <DailyPlanReportSection
+            orgSlug={orgSlug}
+            jobId={jobId}
+            reportDate={bundle.reportDate}
+            formValues={form}
+            canCompleteDay
+            onPlanCompleted={() => {
+              void refresh();
+            }}
+          />
+        )}
 
       {(!compactTaskMode || historyOpen) &&
         (!historyOpen ? (

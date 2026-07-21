@@ -1,5 +1,7 @@
 'use client';
 
+import { AppBrandMark } from '@/components/AppBrandMark';
+import { APP_TAGLINE } from '@/lib/app-branding';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useState } from 'react';
@@ -66,8 +68,9 @@ function LoginForm() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white border border-gray-200 rounded-xl shadow-sm p-8">
-        <h1 className="text-2xl font-bold text-gray-900">Staff sign in</h1>
-        <p className="mt-2 text-sm text-gray-600">Use your organisation staff account.</p>
+        <AppBrandMark />
+        <h1 className="text-2xl font-bold text-gray-900 mt-2">Staff sign in</h1>
+        <p className="mt-2 text-sm text-gray-600">{APP_TAGLINE}</p>
 
         {notice && (
           <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">

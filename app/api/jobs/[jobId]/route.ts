@@ -111,6 +111,40 @@ async function validateJobForOrg(
   return { ok: true };
 }
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ jobId: string }> }
+) {
+  const requestId = request.headers.get('x-vercel-id') ?? randomUUID().slice(0, 8);
+  const { jobId } = await params;
+  const orgSlug = request.nextUrl.searchParams.get('orgSlug')?.trim() ?? '';
+
+  const staffAuth = await guardStaffApi(orgSlug);
+  if (staffAuth instanceof NextResponse) {
+    staffAuth.headers.set('x-request-id', requestId);
+    return staffAuth;
+  }
+
+  const validation = await validateJobForOrg(jobId, orgSlug, requestId);
+  if (validation instanceof NextResponse) return validation;
+
+  const { data: job, error: jobError } = await supabaseAdmin
+    .from('jobs')
+    .select('id, organisation_id, name, site_id, created_at, active_stage_id, hidden_from_qa_at')
+    .eq('id', jobId)
+    .single();
+
+  if (jobError || !job) {
+    const supabaseErr = normalizeSupabaseError(jobError ?? null);
+    console.error('[api/jobs/[jobId]] GET failed:', { requestId, supabaseError: supabaseErr });
+    return serverError(requestId, supabaseErr.code ?? 'JOB_GET', 'Failed to load job');
+  }
+
+  const res = NextResponse.json({ ok: true, job });
+  res.headers.set('x-request-id', requestId);
+  return res;
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }

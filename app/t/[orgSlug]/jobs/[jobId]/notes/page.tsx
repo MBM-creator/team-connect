@@ -124,7 +124,6 @@ export default function JobNotesPage() {
                 job={job}
                 compact
                 className="mt-1"
-                emptyText="No Client Connect project linked."
               />
             </div>
 

@@ -275,7 +275,7 @@ export async function POST(request: NextRequest) {
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'Daily Reports <onboarding@resend.dev>';
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'Site Connect <onboarding@resend.dev>';
   let emailSent = false;
   let emailError: string | null = null;
 
@@ -313,7 +313,7 @@ export async function POST(request: NextRequest) {
       const result = await resend.emails.send({
         from: fromEmail,
         to: [NOTIFY_EMAIL],
-        subject: `Daily report: ${siteNumber} – ${crewName}`,
+        subject: `Daily Report: ${siteNumber} – ${crewName}`,
         html,
       });
       if (result.error) {

@@ -15,7 +15,7 @@ function hookSecretKeyMaterial(): string {
 function fromAddress(): string {
   const v = Deno.env.get('EMAIL_FROM')?.trim();
   if (!v) {
-    throw new Error('EMAIL_FROM is not set (example: Made By Mobbs QA <reports@yourdomain.com>)');
+    throw new Error('EMAIL_FROM is not set (example: Site Connect <reports@yourdomain.com>)');
   }
   return v;
 }
@@ -51,15 +51,15 @@ function confirmationUrl(
 function subjectFor(emailActionType: string): string {
   switch (emailActionType) {
     case 'recovery':
-      return 'Reset your Made By Mobbs QA password';
+      return 'Reset your Site Connect password';
     case 'invite':
-      return 'You have been invited to Made By Mobbs QA';
+      return 'You have been invited to Site Connect';
     case 'signup':
-      return 'Confirm your Made By Mobbs QA email';
+      return 'Confirm your Site Connect email';
     case 'email_change':
       return 'Confirm your email change';
     default:
-      return 'Your Made By Mobbs QA sign-in link';
+      return 'Your Site Connect sign-in link';
   }
 }
 
@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
       redirectTo
     );
 
-    const appName = Deno.env.get('APP_NAME')?.trim() || 'Made By Mobbs QA';
+    const appName = Deno.env.get('APP_NAME')?.trim() || 'Site Connect';
     const html = buildHtml({
       appName,
       intro: introFor(email_action_type),

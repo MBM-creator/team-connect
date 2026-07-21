@@ -1,6 +1,6 @@
-# Daily Reports - Made By Mobbs
+# Site Connect - Made By Mobbs
 
-A mobile-first daily site report webapp for crews to submit reports on-site using their phones.
+Site Connect is a mobile-first app for Made By Mobbs crews to submit daily site reports and QA updates on-site using their phones.
 
 ## Features
 
@@ -135,7 +135,7 @@ Visit `http://localhost:3000` or go directly to `http://localhost:3000/t/madebym
    - `SUPABASE_URL` - Your Supabase project URL
    - `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
    - `RESEND_API_KEY` - Your Resend API key (so notification emails are sent when a report is submitted)
-   - `RESEND_FROM_EMAIL` (optional) - e.g. `Daily Reports <reports@yourdomain.com>`; must use a verified domain in Resend. If omitted, defaults to `onboarding@resend.dev`.
+   - `RESEND_FROM_EMAIL` (optional) - e.g. `Site Connect <reports@yourdomain.com>`; must use a verified domain in Resend. If omitted, defaults to `onboarding@resend.dev`.
    - `APP_URL` (optional) - Public app URL for auth emails, e.g. `https://qa.madebymobbs.com.au`. If omitted in production, defaults to `https://qa.madebymobbs.com.au`.
 
 4. Deploy
@@ -143,6 +143,13 @@ Visit `http://localhost:3000` or go directly to `http://localhost:3000/t/madebym
 5. Configure Custom Domain (optional):
    - Add `qa.madebymobbs.com.au` in Vercel project settings
    - Update DNS records as instructed by Vercel
+
+### Daily Plan pilot (Phase 2G)
+
+- Migration order, staging seed, role checks, and rollback: [`docs/PILOT_READINESS.md`](docs/PILOT_READINESS.md)
+- Release notes (scope, permissions, schema SoT, rollback): [`docs/SITE_CONNECT_PILOT_RELEASE.md`](docs/SITE_CONNECT_PILOT_RELEASE.md)
+- Staging seed (never production): `npm run seed-pilot-workflow` with `ALLOW_PILOT_SEED=true` and `SEED_TARGET=staging|local`
+- Pre-deploy checks: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`
 
 ## URL Structure
 
@@ -222,9 +229,9 @@ jobs/{slugified-job-name}__{jobIdFirst8}/pre-commencement/{uuid}.{ext}
 
 ## Database Schema
 
-See `supabase/schema.sql` for the complete schema.
+Daily Plan / Site Connect operational schema is defined in `supabase/migrations/` (not fully reflected in the legacy `supabase/schema.sql` stub). See [`docs/PILOT_READINESS.md`](docs/PILOT_READINESS.md) for the Daily Plan migration order.
 
-### Key Tables
+### Key Tables (legacy bootstrap)
 
 - **organisations**: Organisation metadata
 - **sites**: Site information linked to organisations

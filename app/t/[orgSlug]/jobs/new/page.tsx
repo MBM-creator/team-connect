@@ -1,5 +1,6 @@
 'use client';
 
+import { AppBrandMark } from '@/components/AppBrandMark';
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -42,7 +43,7 @@ export default function NewJobPage() {
         if (cancelled) return;
         if (!res.ok || !data?.ok || !Array.isArray(data.projects)) {
           setCcProjects([]);
-          setCcError(typeof data?.error === 'string' ? data.error : 'Failed to load Client Connect projects');
+          setCcError(typeof data?.error === 'string' ? data.error : 'Failed to load projects');
           setMode('manual');
           return;
         }
@@ -52,7 +53,7 @@ export default function NewJobPage() {
       .catch((err) => {
         if (!cancelled) {
           setCcProjects([]);
-          setCcError(err instanceof Error ? err.message : 'Failed to load Client Connect projects');
+          setCcError(err instanceof Error ? err.message : 'Failed to load projects');
           setMode('manual');
         }
       })
@@ -138,11 +139,11 @@ export default function NewJobPage() {
     const usingCc = mode === 'client-connect';
 
     if (usingCc && !selectedCcProjectId) {
-      setError('Select a Client Connect project');
+      setError('Select a linked project');
       return;
     }
     if (usingCc && !selectedProject) {
-      setError('That Client Connect job is already linked to a QA job');
+      setError('That project is already linked to a Site Connect job');
       return;
     }
     if (!usingCc && !trimmedName) {
@@ -184,6 +185,7 @@ export default function NewJobPage() {
         <Link href={`/t/${orgSlug}/jobs`} className="text-sm text-[#698F00] hover:underline">
           ← Jobs
         </Link>
+        <AppBrandMark className="mt-4" />
         <h1 className="mt-2 text-2xl font-bold text-gray-900 mb-6">New job</h1>
 
         {!orgSlug && (
@@ -200,7 +202,7 @@ export default function NewJobPage() {
 
         {ccError && (
           <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm">
-            Client Connect projects are unavailable: {ccError}
+            Projects are unavailable: {ccError}
           </div>
         )}
 
@@ -217,7 +219,7 @@ export default function NewJobPage() {
                     : 'text-gray-700 hover:bg-gray-50 disabled:text-gray-400 disabled:hover:bg-white'
                 }`}
               >
-                Client Connect
+                From project list
               </button>
               <button
                 type="button"
@@ -235,7 +237,7 @@ export default function NewJobPage() {
             {mode === 'client-connect' && (
               <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
                 <label htmlFor="ccProject" className="block text-sm font-medium text-gray-700 mb-1">
-                  Client Connect project <span className="text-red-500">*</span>
+                  Linked project <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="ccProject"
@@ -245,8 +247,8 @@ export default function NewJobPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#698F00] focus:border-transparent bg-white text-gray-900 disabled:bg-gray-100"
                   required
                 >
-                  {ccLoading && <option value="">Loading Client Connect projects…</option>}
-                  {!ccLoading && availableCcProjects.length === 0 && <option value="">No Client Connect projects available</option>}
+                  {ccLoading && <option value="">Loading projects…</option>}
+                  {!ccLoading && availableCcProjects.length === 0 && <option value="">No projects available</option>}
                   {!ccLoading && availableCcProjects.map((project) => (
                     <option key={project.project_id} value={project.project_id}>
                       {project.project_title} — {ccClientDisplayName(project)}
@@ -309,7 +311,7 @@ export default function NewJobPage() {
               disabled={isSubmitting || (mode === 'client-connect' && (ccLoading || !selectedCcProjectId || !selectedProject))}
               className="w-full bg-[#698F00] text-white py-3 px-6 rounded-lg font-medium hover:bg-[#5a7d00] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
-              {isSubmitting ? 'Creating…' : mode === 'client-connect' ? 'Create from Client Connect' : 'Create job'}
+              {isSubmitting ? 'Creating…' : mode === 'client-connect' ? 'Create from project list' : 'Create job'}
             </button>
           </form>
         )}

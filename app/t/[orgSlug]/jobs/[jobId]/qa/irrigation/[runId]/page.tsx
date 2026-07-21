@@ -97,7 +97,7 @@ export default function IrrigationQaRunOverviewPage() {
           <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#698F00]/10 text-[#698F00] border border-[#698F00]/20">v1</span>
         </div>
         <p className="text-sm text-gray-600 mt-1">Status: {runStatus || '…'}</p>
-        {job && <ClientConnectJobSummary job={job} compact className="mt-1" emptyText="No Client Connect project linked." />}
+        {job && <ClientConnectJobSummary job={job} compact className="mt-1" />}
         {error && <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">{error}</div>}
         {loading && <p className="mt-4 text-gray-600">Loading…</p>}
 

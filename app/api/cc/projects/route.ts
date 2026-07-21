@@ -19,15 +19,15 @@ export async function GET(request: NextRequest) {
     const error =
       err instanceof Error && err.message
         ? err.message
-        : 'Failed to load Client Connect projects';
-    const res = NextResponse.json(
-      {
-        ok: false,
-        requestId,
-        error,
-      },
-      { status: 502 }
-    );
+        : 'Failed to load projects';
+    console.error('[api/cc/projects] project sync fetch failed:', { requestId, error });
+    const res = NextResponse.json({
+      ok: true,
+      projects: [],
+      portalBaseUrl: process.env.CC_BASE_URL?.replace(/\/+$/, '') ?? null,
+      ccUnavailable: true,
+      warning: 'Project sync is unavailable.',
+    });
     res.headers.set('x-request-id', requestId);
     return res;
   }

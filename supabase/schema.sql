@@ -1,4 +1,4 @@
--- Daily Reports Database Schema
+-- Site Connect Database Schema
 -- Run this in your Supabase SQL editor
 
 -- Organisations table

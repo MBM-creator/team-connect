@@ -248,7 +248,7 @@ export async function PATCH(
         projectId: cc_project_id,
         error: 'Selected project is not in the active Client Connect projects list',
       });
-      return jsonError('Selected project is not in the active Client Connect projects list', 400, requestId);
+      return jsonError('Selected project is not in the active projects list', 400, requestId);
     }
     console.log('[CC PROJECT VALIDATED]', {
       requestId,
@@ -275,7 +275,7 @@ export async function PATCH(
         ccIdentity: ccProjectJobIdentity(match),
         supabaseError: supabaseErr,
       });
-      return serverError(requestId, supabaseErr.code ?? 'JOB_CC_LOOKUP', 'Failed to check existing Client Connect job');
+      return serverError(requestId, supabaseErr.code ?? 'JOB_CC_LOOKUP', 'Failed to check existing linked job');
     }
     const projectsById = new Map(projects.map((project) => [project.project_id, project]));
     const selectedIdentity = ccProjectJobIdentity(match);
@@ -295,7 +295,7 @@ export async function PATCH(
       return linkedJob.cc_project_id === cc_project_id;
     });
     if (existingJob) {
-      return jsonError('This Client Connect job is already linked to another QA job', 409, requestId);
+      return jsonError('This project is already linked to another Site Connect job', 409, requestId);
     }
 
     try {
@@ -351,7 +351,7 @@ export async function PATCH(
     return serverError(
       requestId,
       supabaseErr.code ?? 'JOB_CC_MAPPING_UPDATE',
-      'Failed to update Client Connect mapping'
+      'Failed to update project link'
     );
   }
 

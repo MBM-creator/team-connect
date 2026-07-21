@@ -4,6 +4,12 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { validateJobForOrg, normalizeSupabaseError, isValidUuid } from '@/lib/job-org-validation';
 import { mapDailySiteUpdateRow, type DailySiteUpdateDbRow } from '@/lib/daily-site-update';
 import { requireSupervisorOrAdmin } from '@/lib/staff-auth';
+import {
+  DAILY_PLAN_VOID_COMPLETING_UPDATE_MESSAGE,
+  dailyPlanJsonError,
+  dailyPlanServerError,
+  logDailyPlanMutationFailure,
+} from '@/lib/daily-plan-api-errors';
 
 export const runtime = 'nodejs';
 
@@ -37,18 +43,6 @@ const UPDATE_SELECT = `
   stages(name)
 `;
 
-function jsonError(message: string, status = 400, requestId?: string) {
-  const res = NextResponse.json({ ok: false, message, requestId }, { status });
-  if (requestId) res.headers.set('x-request-id', requestId);
-  return res;
-}
-
-function serverError(requestId: string, errorCode: string, message = 'Internal server error') {
-  const res = NextResponse.json({ ok: false, requestId, errorCode, message }, { status: 500 });
-  res.headers.set('x-request-id', requestId);
-  return res;
-}
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string; updateId: string }> }
@@ -64,7 +58,7 @@ export async function PATCH(
   }
 
   if (!updateId || !isValidUuid(updateId)) {
-    return jsonError('Update not found', 404, requestId);
+    return dailyPlanJsonError('Update not found', 404, requestId);
   }
 
   const validation = await validateJobForOrg(jobId, orgSlug, requestId);
@@ -75,15 +69,15 @@ export async function PATCH(
     const raw = await request.json();
     body = typeof raw === 'object' && raw !== null ? raw : {};
   } catch {
-    return jsonError('Invalid JSON body', 400, requestId);
+    return dailyPlanJsonError('Invalid JSON body', 400, requestId);
   }
 
   const voidReason = String(body.voidReason ?? '').trim();
   if (!voidReason) {
-    return jsonError('voidReason is required', 400, requestId);
+    return dailyPlanJsonError('voidReason is required', 400, requestId);
   }
   if (voidReason.length > 2000) {
-    return jsonError('voidReason must be at most 2000 characters', 400, requestId);
+    return dailyPlanJsonError('voidReason must be at most 2000 characters', 400, requestId);
   }
 
   const { data: existing, error: existingError } = await supabaseAdmin
@@ -94,11 +88,23 @@ export async function PATCH(
     .maybeSingle();
 
   if (existingError || !existing) {
-    return jsonError('Update not found', 404, requestId);
+    return dailyPlanJsonError('Update not found', 404, requestId);
   }
 
   if (existing.voided_at) {
-    return jsonError('This update has already been voided', 400, requestId);
+    return dailyPlanJsonError('This update has already been voided', 400, requestId);
+  }
+
+  // Completing DSU for a completed Daily Plan cannot be voided (plan immutability).
+  const { data: linkedPlan } = await supabaseAdmin
+    .from('job_daily_plans')
+    .select('id, status')
+    .eq('job_id', jobId)
+    .eq('completed_daily_site_update_id', updateId)
+    .maybeSingle();
+
+  if (linkedPlan) {
+    return dailyPlanJsonError(DAILY_PLAN_VOID_COMPLETING_UPDATE_MESSAGE, 409, requestId);
   }
 
   const now = new Date().toISOString();
@@ -116,11 +122,20 @@ export async function PATCH(
 
   if (updateError || !updated) {
     const supabaseErr = normalizeSupabaseError(updateError ?? null);
-    console.error('[api/jobs/[jobId]/daily-site-updates/[updateId]/void] PATCH failed:', {
+    logDailyPlanMutationFailure({
       requestId,
-      supabaseError: supabaseErr,
+      action: 'void_dsu',
+      orgSlug,
+      jobId,
+      userId: staffAuth.staff.id,
+      errorType: supabaseErr.code ?? 'DSU_VOID',
+      message: 'Failed to void daily site update',
     });
-    return serverError(requestId, supabaseErr.code ?? 'DSU_VOID', 'Failed to void daily site update');
+    return dailyPlanServerError(
+      requestId,
+      supabaseErr.code ?? 'DSU_VOID',
+      'Failed to void daily site update'
+    );
   }
 
   const update = mapDailySiteUpdateRow(

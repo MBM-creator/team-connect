@@ -1,6 +1,5 @@
 import { Resend } from 'resend';
-
-const APP_NAME = 'Made By Mobbs QA';
+import { APP_NAME } from '@/lib/app-branding';
 
 function escapeHtml(value: string): string {
   return value

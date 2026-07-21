@@ -41,7 +41,9 @@ export async function POST(request: NextRequest) {
     return genericSuccess;
   }
 
-  const redirectTo = `${getAppOrigin(request)}/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`;
+  const appOrigin = getAppOrigin(request);
+  const nextPath = '/auth/reset-password';
+  const redirectTo = `${appOrigin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: 'recovery',
     email,
@@ -53,7 +55,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: 'Unable to send reset email' }, { status: 500 });
   }
 
-  const sent = await sendPasswordResetEmail(email, data.properties.action_link);
+  const properties = data.properties as Record<string, unknown>;
+  const hashedToken = typeof properties.hashed_token === 'string' ? properties.hashed_token : '';
+  const actionLink = hashedToken
+    ? `${appOrigin}/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&type=recovery&next=${encodeURIComponent(nextPath)}`
+    : data.properties.action_link;
+
+  const sent = await sendPasswordResetEmail(email, actionLink);
   if (!sent.ok) {
     console.error('[auth/forgot-password] Resend failed:', sent.message);
     return NextResponse.json({ ok: false, message: 'Unable to send reset email' }, { status: 502 });

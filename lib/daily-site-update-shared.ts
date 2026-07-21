@@ -77,6 +77,10 @@ export type DailySiteUpdateDbRow = {
   voided_at: string | null;
   voided_by_staff_profile_id: string | null;
   void_reason: string | null;
+  daily_plan_id?: string | null;
+  notes_for_tomorrow?: string | null;
+  is_day_completion?: boolean | null;
+  submission_status?: 'draft' | 'submitted' | null;
   staff_profiles?: { full_name: string } | { full_name: string }[] | null;
   stages?: { name: string } | { name: string }[] | null;
 };
@@ -108,6 +112,10 @@ export type DailySiteUpdateApiRow = {
   voidedAt: string | null;
   voidReason: string | null;
   canVoid: boolean;
+  dailyPlanId: string | null;
+  notesForTomorrow: string | null;
+  isDayCompletion: boolean;
+  submissionStatus: 'draft' | 'submitted';
 };
 
 function trimField(value: unknown, maxLen = DAILY_SITE_UPDATE_MAX_FIELD_LENGTH): string {
@@ -231,6 +239,10 @@ export function mapDailySiteUpdateRow(
     voidedAt: row.voided_at,
     voidReason: row.void_reason,
     canVoid: canVoidDailySiteUpdate(viewerRole) && row.voided_at == null,
+    dailyPlanId: row.daily_plan_id ?? null,
+    notesForTomorrow: row.notes_for_tomorrow ?? null,
+    isDayCompletion: row.is_day_completion === true,
+    submissionStatus: row.submission_status === 'draft' ? 'draft' : 'submitted',
   };
 }
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { AppBrandMark } from '@/components/AppBrandMark';
 import type { CcProject } from '@/lib/cc-client';
 import { ccClientDisplayName } from '@/lib/cc-client-display';
 
@@ -35,6 +36,7 @@ export default function JobsListPage() {
   const [ccProjects, setCcProjects] = useState<CcProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ccWarning, setCcWarning] = useState<string | null>(null);
   const [creatingProjectId, setCreatingProjectId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -66,13 +68,16 @@ export default function JobsListPage() {
         if (data?.ok && Array.isArray(data.jobs)) {
           setJobs(data.jobs);
           setError(null);
+          setCcWarning(typeof data.warning === 'string' ? data.warning : null);
         } else {
           setError('Invalid response');
+          setCcWarning(null);
         }
       })
       .catch((err) => {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load jobs');
+          setCcWarning(null);
         }
       })
       .finally(() => {
@@ -254,9 +259,9 @@ export default function JobsListPage() {
         return;
       }
 
-      setError(typeof data?.message === 'string' ? data.message : 'Failed to create Client Connect job');
+      setError(typeof data?.message === 'string' ? data.message : 'Failed to create job from project list');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create Client Connect job');
+      setError(err instanceof Error ? err.message : 'Failed to create job from project list');
     } finally {
       setCreatingProjectId(null);
     }
@@ -266,15 +271,26 @@ export default function JobsListPage() {
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="mb-6 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">Jobs</h1>
+          <div>
+            <AppBrandMark />
+            <h1 className="mt-1 text-2xl font-bold text-gray-900">Jobs</h1>
+          </div>
           <div className="flex items-center gap-2">
             {isAdmin && orgSlug && (
-              <Link
-                href={`/t/${orgSlug}/admin`}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-              >
-                Admin
-              </Link>
+              <>
+                <Link
+                  href={`/t/${orgSlug}/site-operations`}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                >
+                  Site Operations
+                </Link>
+                <Link
+                  href={`/t/${orgSlug}/admin`}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                >
+                  Admin
+                </Link>
+              </>
             )}
             {orgSlug && (
               <Link
@@ -290,6 +306,12 @@ export default function JobsListPage() {
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
             {error}
+          </div>
+        )}
+
+        {ccWarning && !error && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            {ccWarning}
           </div>
         )}
 
