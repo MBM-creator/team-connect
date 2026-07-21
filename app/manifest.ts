@@ -7,9 +7,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "QA Checks",
-    short_name: "QA Checks",
-    description: "Job QA checklist launcher",
+    name: "Site Connect",
+    short_name: "Site Connect",
+    description: "Site Connect for Made By Mobbs job updates and QA checks",
     start_url: "/t/madebymobbs/jobs",
     display: "standalone",
     background_color: "#0F172A",

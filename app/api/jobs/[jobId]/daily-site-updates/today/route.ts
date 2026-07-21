@@ -13,6 +13,8 @@ import {
   type DailySiteUpdateDbRow,
 } from '@/lib/daily-site-update';
 import { todayReportDate } from '@/lib/report-date';
+import { findDailyPlanIdByJobDate, loadDailyPlanBundle } from '@/lib/daily-plan';
+import { matchDailyPlanForReport } from '@/lib/daily-plan-report';
 
 export const runtime = 'nodejs';
 
@@ -118,6 +120,7 @@ export async function GET(
     .select(UPDATE_SELECT)
     .eq('job_id', jobId)
     .is('voided_at', null)
+    .neq('submission_status', 'draft')
     .order('submitted_at', { ascending: false })
     .limit(10);
 
@@ -134,6 +137,15 @@ export async function GET(
     mapDailySiteUpdateRow(row as DailySiteUpdateDbRow, staffAuth.staff.role)
   );
 
+  let dailyPlanMatch = matchDailyPlanForReport(null, reportDate);
+  const planId = await findDailyPlanIdByJobDate(jobId, reportDate);
+  if (planId) {
+    const bundle = await loadDailyPlanBundle(planId, staffAuth.staff.role);
+    if (bundle.ok) {
+      dailyPlanMatch = matchDailyPlanForReport(bundle.plan, reportDate);
+    }
+  }
+
   const res = NextResponse.json({
     ok: true,
     job: validation.job,
@@ -147,6 +159,7 @@ export async function GET(
     reportDate,
     reportTimezone,
     viewerRole: staffAuth.staff.role,
+    dailyPlanMatch,
   });
   res.headers.set('x-request-id', requestId);
   return res;

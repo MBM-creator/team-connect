@@ -101,6 +101,7 @@ export async function GET(
   if (!includeVoided) {
     query = query.is('voided_at', null);
   }
+  query = query.neq('submission_status', 'draft');
 
   const { data: rows, error } = await query;
   if (error) {

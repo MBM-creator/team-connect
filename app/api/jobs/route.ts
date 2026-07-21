@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PROJECT_SYNC_UNAVAILABLE_WARNING } from '@/lib/app-branding';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { guardStaffApi } from '@/lib/guard-staff-api';
 import { ccProjectJobIdentity, fetchCcProjects } from '@/lib/cc-client';
@@ -89,6 +90,22 @@ function findExistingCcJob(jobs: JobRow[], project: CcProject, projectsById: Map
     const linkedProject = job.cc_project_id ? projectsById.get(job.cc_project_id) : undefined;
     return linkedProject ? ccProjectJobIdentity(linkedProject) === selectedIdentity : false;
   }) ?? null;
+}
+
+async function loadSavedJobsForOrg(organisationId: string, requestId: string): Promise<JobRow[]> {
+  const { data: jobs, error } = await supabaseAdmin
+    .from('jobs')
+    .select(JOB_SELECT)
+    .eq('organisation_id', organisationId)
+    .is('hidden_from_qa_at', null);
+
+  if (error) {
+    const supabaseErr = normalizeSupabaseError(error);
+    console.error('[api/jobs] GET saved jobs failed:', { requestId, supabaseError: supabaseErr });
+    throw new Error('Failed to list jobs');
+  }
+
+  return (jobs ?? []) as JobRow[];
 }
 
 async function upsertCcProjectJob(
@@ -216,9 +233,22 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error && err.message ? err.message : 'Failed to load Client Connect projects';
     console.error('[api/jobs] GET CC fetch failed:', { requestId, error: message });
-    const res = NextResponse.json({ ok: false, requestId, message }, { status: 502 });
-    res.headers.set('x-request-id', requestId);
-    return res;
+    try {
+      const jobs = await loadSavedJobsForOrg(org.id as string, requestId);
+      const res = NextResponse.json({
+        ok: true,
+        jobs,
+        ccUnavailable: true,
+        warning: PROJECT_SYNC_UNAVAILABLE_WARNING,
+      });
+      res.headers.set('x-request-id', requestId);
+      return res;
+    } catch (fallbackErr) {
+      const fallbackMessage = fallbackErr instanceof Error && fallbackErr.message
+        ? fallbackErr.message
+        : 'Failed to list jobs';
+      return serverError(requestId, 'JOBS_FALLBACK', fallbackMessage);
+    }
   }
 
   const { data: existingJobs, error: jobsError } = await supabaseAdmin
@@ -345,7 +375,7 @@ export async function POST(request: NextRequest) {
     }
     ccProject = projects.find((project) => project.project_id === ccProjectId) ?? null;
     if (!ccProject) {
-      return jsonError('Selected project is not in the active Client Connect projects list', 400, requestId);
+      return jsonError('Selected project is not in the active projects list', 400, requestId);
     }
     const selectedProject = ccProject;
 
@@ -361,7 +391,7 @@ export async function POST(request: NextRequest) {
         ccIdentity: ccProjectJobIdentity(selectedProject),
         supabaseError: supabaseErr,
       });
-      return serverError(requestId, supabaseErr.code ?? 'JOB_CC_LOOKUP', 'Failed to check existing Client Connect job');
+      return serverError(requestId, supabaseErr.code ?? 'JOB_CC_LOOKUP', 'Failed to check existing linked job');
     }
     const projectsById = new Map(projects.map((project) => [project.project_id, project]));
     const selectedIdentity = ccProjectJobIdentity(selectedProject);

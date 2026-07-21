@@ -1,6 +1,6 @@
-# EOD Reports: Reader View and Indexes (Supabase)
+# Daily Report Reader View and Indexes (Supabase)
 
-Single “reader” view and supporting indexes for end-of-day reports. Used for reporting, BI, export, and later by Client Connect.
+Single “reader” view and supporting indexes for Daily Report data. Used for reporting, BI, export, and later by Client Connect.
 
 ## View: `public.daily_reports_reader_v2`
 

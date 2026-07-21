@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ClientConnectJobSummary } from '@/components/ClientConnectJobSummary';
+import { DailyPlanPanel } from '@/components/DailyPlanPanel';
 import { DailySiteUpdatePanel } from '@/components/DailySiteUpdatePanel';
 import { JobNotesEntryCard } from '@/components/JobNotesEntryCard';
 import type { CcProject } from '@/lib/cc-client';
@@ -108,6 +109,16 @@ export default function TodaysWorkPage() {
   }, []);
 
   useEffect(() => {
+    if (!clientReady || loading) return;
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== '#daily-site-update') return;
+    const el = document.getElementById('daily-site-update');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [clientReady, loading]);
+
+  useEffect(() => {
     if (!orgSlug || !jobId) {
       setError('Job not found');
       setLoading(false);
@@ -200,7 +211,6 @@ export default function TodaysWorkPage() {
                 job={job}
                 compact
                 className="mt-1"
-                emptyText="No Client Connect project linked."
               />
               {activeStage && (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -286,17 +296,21 @@ export default function TodaysWorkPage() {
               </div>
             )}
 
-            <DailySiteUpdatePanel
-              orgSlug={orgSlug}
-              jobId={jobId}
-              jobName={job.name}
-              job={job}
-              hideHeaderContext
-              hideQaEvidenceWarning
-              historyDefaultOpen={false}
-              compactTaskMode
-              formDefaultOpen={false}
-            />
+            <DailyPlanPanel orgSlug={orgSlug} jobId={jobId} jobName={job.name} />
+
+            <div id="daily-site-update">
+              <DailySiteUpdatePanel
+                orgSlug={orgSlug}
+                jobId={jobId}
+                jobName={job.name}
+                job={job}
+                hideHeaderContext
+                hideQaEvidenceWarning
+                historyDefaultOpen={false}
+                compactTaskMode
+                formDefaultOpen={false}
+              />
+            </div>
 
             <JobNotesEntryCard
               orgSlug={orgSlug}

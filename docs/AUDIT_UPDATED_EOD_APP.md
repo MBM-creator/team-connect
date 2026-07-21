@@ -1,8 +1,8 @@
-# Audit: Updated EOD App
+# Audit: Site Connect Daily Report Flow
 
 ## 1. Executive Summary
 
-- The **updated EOD** is the stage-based flow: form on **Today’s Work** (`/t/[orgSlug]/jobs/[jobId]/today`), saving into **`stage_end_of_day`** (one row per stage per calendar day: `stage_id`, `report_date`, `submitted_at`, `summary`). It is **not** the legacy “daily report” form at `/t/[orgSlug]/daily` (which writes to `daily_reports`).
+- The **updated EOD** is the stage-based flow: form on **Today** (`/t/[orgSlug]/jobs/[jobId]/today`), saving into **`stage_end_of_day`** (one row per stage per calendar day: `stage_id`, `report_date`, `submitted_at`, `summary`). It is **not** the legacy “daily report” form at `/t/[orgSlug]/daily` (which writes to `daily_reports`).
 - The updated EOD **is linked at project/job level** in practice: context comes from the **job** in the URL; the saved row is keyed by **stage_id**, and stage belongs to job. There is **no client level** in the app: no `client_id` (or equivalent) exists anywhere in the codebase.
 - **Relational IDs:** EOD rows use **stage_id** (UUID FK to `stages`). Job is not stored on `stage_end_of_day` but is inferred via `stages.job_id`. All identifiers are UUIDs from the DB.
 - **Structure:** Clear and moderate: one table for updated EOD, one API route for upsert, one page for the form. The only structural gap for CC is that jobs are sourced only from this app’s `jobs` table (org-scoped); there is no client entity and no external project list.
@@ -13,7 +13,7 @@
 
 - **Top-level:** Next.js app with `app/`, `lib/`, `supabase/`, `public/`, `docs/`, `middleware.ts`, `package.json`, etc.
 - **Relevant areas:**
-  - **app/t/[orgSlug]/jobs/[jobId]/today/page.tsx** – Updated EOD form (Today’s Work): daily note, checklist, labour, blocker, **End of day** section.
+  - **app/t/[orgSlug]/jobs/[jobId]/today/page.tsx** – Updated EOD form (Today): daily note, checklist, labour, blocker, **Daily Report** section.
   - **app/api/stages/[stageId]/end-of-day/route.ts** – PATCH handler that upserts into `stage_end_of_day`.
   - **app/api/jobs/[jobId]/today/route.ts** – GET that loads job, active stage, **endOfDay** and **endOfDayHistory** from `stage_end_of_day`.
   - **app/t/[orgSlug]/overview/page.tsx** – Jobs overview; shows EOD status per job from overview API.
@@ -65,7 +65,7 @@
    - Active stage comes from `job.active_stage_id`; if missing, EOD section is still rendered but submission is gated by `activeStage?.id`.
 
 2. **Job/client context**
-   - **Selected/inferred:** Job from URL path. Organisation from `orgSlug` (validated by API). No job dropdown on this page; user arrives via job detail link “Today’s Work” from `/t/[orgSlug]/jobs/[jobId]`. Job list comes from `GET /api/jobs?orgSlug=...` (this app’s `jobs` table).
+   - **Selected/inferred:** Job from URL path. Organisation from `orgSlug` (validated by API). No job dropdown on this page; user arrives via job detail link “Today” from `/t/[orgSlug]/jobs/[jobId]`. Job list comes from `GET /api/jobs?orgSlug=...` (this app’s `jobs` table).
 
 3. **Form submission**
    - **Action:** `submitEndOfDay()` in same page (lines ~275–303).
@@ -118,7 +118,7 @@ Uses `/t/[orgSlug]/daily`, draft in `daily_report_drafts`, submit to `daily_repo
   Not supported today. Jobs are read only from **this** app’s `jobs` table, filtered by `organisation_id` (from org slug). To use CC’s list you’d need either: (1) an internal API from CC that this app calls to get “active projects/jobs,” or (2) sync/import of CC projects into `jobs` (and possibly `stages`) here. Current code has no client or API for external project list.
 
 - **Job selector / place in UI:**  
-  There is a **job list** at `/t/[orgSlug]/jobs` (from `GET /api/jobs`) and a **job detail** page with a “Today’s Work” link to the EOD form. Overview at `/t/[orgSlug]/overview` shows jobs (from `GET /api/jobs/overview`) but **no links** to jobs or today in the overview UI. So the “selector” is effectively: go to jobs list → open a job (no link in list in code) → open “Today’s Work.” There is no single dropdown that could be swapped for “CC projects” without adding or changing UI.
+  There is a **job list** at `/t/[orgSlug]/jobs` (from `GET /api/jobs`) and a **job detail** page with a “Today” link to the EOD form. Overview at `/t/[orgSlug]/overview` shows jobs (from `GET /api/jobs/overview`) but **no links** to jobs or today in the overview UI. So the “selector” is effectively: go to jobs list → open a job (no link in list in code) → open “Today.” There is no single dropdown that could be swapped for “CC projects” without adding or changing UI.
 
 - **Fields to add for clean integration:**  
   Depends on integration shape. If CC owns “projects” and EOD stays stage-based: either (1) add **job_id** (and optionally **client_id**) to **stage_end_of_day** for reporting/joining without joining through stages, or (2) keep only **stage_id** and ensure stages/jobs are synced from CC (e.g. job has **external_project_id** or **client_id** on **jobs**). If EOD should be selectable by “CC project” in UI, the app needs a way to get that list (API or synced table) and a selector.
@@ -147,7 +147,7 @@ Uses `/t/[orgSlug]/daily`, draft in `daily_report_drafts`, submit to `daily_repo
 
 - **Two EOD concepts:** Legacy “daily report” (daily_reports, free-text site, no job) vs updated EOD (stage_end_of_day, job→stage). Documentation and future “EOD” reports must be clear which is meant; reader views (e.g. daily_reports_reader_v2) target the legacy table.
 - **No client or project identity on updated EOD:** stage_end_of_day has only **stage_id**. Reporting or CC integration that needs “by client” or “by project” must join through stages → jobs (and jobs have no **client_id**). Adding job_id/client_id to the EOD row or to jobs would reduce join complexity and make reporting/CC alignment clearer.
-- **Job list has no links:** `/t/[orgSlug]/jobs` lists jobs but list items are not links. Navigation to job detail (and then Today’s Work) may rely on other entry points or manual URLs. Overview page has no links to jobs. So “job selector” UX is underdeveloped for swapping in an external project list.
+- **Job list has no links:** `/t/[orgSlug]/jobs` lists jobs but list items are not links. Navigation to job detail (and then Today) may rely on other entry points or manual URLs. Overview page has no links to jobs. So “job selector” UX is underdeveloped for swapping in an external project list.
 - **No auth:** Anyone with the org slug and job UUID can hit the API. No user or role checks. Fine for a closed/internal tool; risky if URLs or org slugs are guessable or exposed.
 - **Legacy daily_reports.stage_id:** Migration adds optional **stage_id** to daily_reports, but the legacy submit route does **not** set it. So legacy reports remain unlinked to job/stage unless something else sets stage_id. If both flows are kept, consider whether legacy submissions should ever set stage_id (e.g. from a future selector).
 - **Schema vs code for daily_reports:** Base schema in repo doesn’t list **crew_name**; submit and reader doc do. Suggests schema and code may have diverged or a migration is missing from repo; could cause confusion or deploy issues.
@@ -173,7 +173,7 @@ Uses `/t/[orgSlug]/daily`, draft in `daily_report_drafts`, submit to `daily_repo
 - **Reasons:**  
   - **Easy:** Updated EOD already uses relational IDs (stage_id), one clear table and one API; no text-based linking to unwind.  
   - **Moderate:** Job list is org-scoped and local; you need a way to get “CC projects” into the flow (API or sync) and a clear place in the UI to choose project/job. Adding **job_id** (and optionally **client_id** on jobs or on EOD) is a small schema and API change.  
-  - **Awkward:** No client concept yet; no existing “project selector” that cleanly maps to CC; overview/jobs list don’t link through to Today’s Work, so navigation and any “pick a CC project” UX may need design and implementation.
+  - **Awkward:** No client concept yet; no existing “project selector” that cleanly maps to CC; overview/jobs list don’t link through to Today, so navigation and any “pick a CC project” UX may need design and implementation.
 
 ---
 
@@ -190,7 +190,7 @@ Uses `/t/[orgSlug]/daily`, draft in `daily_report_drafts`, submit to `daily_repo
 | `lib/supabase-admin.ts` | All DB access uses **SUPABASE_URL** and **SUPABASE_SERVICE_ROLE_KEY**; no user auth. |
 | `app/api/jobs/route.ts` | Jobs list from **jobs** by organisation_id; no external API or client_id. |
 | `app/t/[orgSlug]/overview/page.tsx` | Shows EOD status per job; no Link to job or today page. |
-| `app/t/[orgSlug]/jobs/[jobId]/page.tsx` | Link “Today’s Work” to `/t/${orgSlug}/jobs/${jobId}/today` – main entry to updated EOD. |
+| `app/t/[orgSlug]/jobs/[jobId]/page.tsx` | Link “Today” to `/t/${orgSlug}/jobs/${jobId}/today` – main entry to updated EOD. |
 | `middleware.ts` | No auth; only Cache-Control. |
 | `docs/supabase-eod-reader.md` | Describes reader view for **daily_reports** (legacy), not stage_end_of_day. |
 

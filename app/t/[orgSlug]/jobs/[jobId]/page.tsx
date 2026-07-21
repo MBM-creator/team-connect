@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { AppBrandMark } from '@/components/AppBrandMark';
 import { ClientConnectJobSummary } from '@/components/ClientConnectJobSummary';
 import { ClientConnectVariationsSummary } from '@/components/ClientConnectVariationsSummary';
 import { JobNotesEntryCard } from '@/components/JobNotesEntryCard';
@@ -354,7 +355,7 @@ export default function JobDetailPage() {
           setCcProjectsError(
             typeof data?.error === 'string'
               ? data.error
-              : 'Failed to load Client Connect projects'
+              : 'Failed to load projects'
           );
           return;
         }
@@ -367,7 +368,7 @@ export default function JobDetailPage() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setCcProjectsError(err instanceof Error ? err.message : 'Failed to load Client Connect projects');
+          setCcProjectsError(err instanceof Error ? err.message : 'Failed to load projects');
         }
       })
       .finally(() => {
@@ -670,7 +671,7 @@ export default function JobDetailPage() {
           };
     if (ccProjectsError && !manualTitle) {
       setCcMappingSaving(false);
-      setCcMappingError('Project title is required while the Client Connect picker is unavailable.');
+      setCcMappingError('Project title is required while the project picker is unavailable.');
       return;
     }
     try {
@@ -692,12 +693,12 @@ export default function JobDetailPage() {
         setCcMappingError(
           typeof data?.message === 'string'
             ? data.message
-            : 'Failed to update Client Connect mapping'
+            : 'Failed to update project link'
         );
       }
     } catch (err) {
       setCcMappingError(
-        err instanceof Error ? err.message : 'Failed to update Client Connect mapping'
+        err instanceof Error ? err.message : 'Failed to update project link'
       );
     } finally {
       setCcMappingSaving(false);
@@ -864,7 +865,8 @@ export default function JobDetailPage() {
         {!loading && !error && job && (
           <>
             <div className="mb-6">
-              <div className="flex items-start justify-between gap-4">
+              <AppBrandMark />
+              <div className="mt-2 flex items-start justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">{job.name}</h1>
                   {job.created_at && (
@@ -898,18 +900,17 @@ export default function JobDetailPage() {
             </div>
 
             <section className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Client Connect project</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Linked project</h2>
               <ClientConnectJobSummary
                 job={job}
                 className="mb-3"
-                emptyText="No Client Connect project linked yet."
               />
               {ccProjectsLoading && (
-                <p className="text-sm text-gray-600">Loading Client Connect projects…</p>
+                <p className="text-sm text-gray-600">Loading projects…</p>
               )}
               {!ccProjectsLoading && ccProjectsError && (
                 <div className="mb-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm">
-                  Client Connect picker unavailable on this environment: {ccProjectsError}
+                  Project picker unavailable on this environment: {ccProjectsError}
                   {job.cc_project_id && (
                     <span className="block mt-1">
                       The saved job link above is still stored on the job.
@@ -952,7 +953,7 @@ export default function JobDetailPage() {
                   <div className="grid gap-2">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Pending Client Connect project
+                        Pending linked project
                       </label>
                       <input
                         value={manualCcProjectTitle}
@@ -974,7 +975,7 @@ export default function JobDetailPage() {
                         disabled={ccMappingSaving}
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Use this only when the picker cannot reach Client Connect. It stores the typed project and client names on this job as a pending link, so QA and end-of-day screens show the intended Client Connect project until the live API link can be saved.
+                        Use this only when the picker cannot reach project sync. It stores the typed project and client names on this job as a pending link, so QA and Site Connect screens show the intended project until the live API link can be saved.
                       </p>
                     </div>
                   </div>
@@ -1001,7 +1002,7 @@ export default function JobDetailPage() {
                   <div>
                     <p className="text-sm font-medium text-gray-700">Project QA trades</p>
                     {selectedCcProject.trades.length === 0 ? (
-                      <p className="mt-1 text-sm text-gray-500">No trades are set on this Client Connect project.</p>
+                      <p className="mt-1 text-sm text-gray-500">No trades are set on this linked project.</p>
                     ) : (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {selectedCcProject.trades.map((trade) => (
@@ -1026,7 +1027,7 @@ export default function JobDetailPage() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 px-3 mb-4 bg-white/80 border border-gray-200 rounded-lg text-sm text-gray-600">
                 <span className={qaStatusClass}>{qaStatusLabel}</span>
                 <Link href={`/t/${orgSlug}/jobs/${jobId}/today`} className="font-medium text-[#698F00] hover:underline">
-                  Open today&apos;s QA
+                  Open Today
                 </Link>
               </div>
             )}
@@ -1251,7 +1252,7 @@ export default function JobDetailPage() {
                           )}
                           {stage.cc_section_id && (
                             <span className="text-xs font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                              Client Connect section
+                              Linked section
                               {stage.cc_section_trade ? ` · ${stage.cc_section_trade.replace('_', ' ')}` : ''}
                             </span>
                           )}

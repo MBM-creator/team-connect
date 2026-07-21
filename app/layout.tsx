@@ -6,12 +6,12 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "QA Checks - Made By Mobbs",
-  description: "Made By Mobbs job QA checks",
+  title: "Site Connect - Made By Mobbs",
+  description: "Site Connect for Made By Mobbs job updates and QA checks",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "QA Checks",
+    title: "Site Connect",
     statusBarStyle: "black-translucent",
   },
   icons: {

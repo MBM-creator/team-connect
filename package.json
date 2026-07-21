@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "migrate-storage-paths": "tsx scripts/migrate-storage-paths.ts",
     "fix-blob-photo-extensions": "tsx scripts/fix-blob-photo-extensions.ts",
-    "seed-admin-user": "tsx scripts/seed-admin-user.ts"
+    "seed-admin-user": "tsx scripts/seed-admin-user.ts",
+    "seed-pilot-workflow": "tsx scripts/seed-pilot-workflow.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -31,6 +34,7 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

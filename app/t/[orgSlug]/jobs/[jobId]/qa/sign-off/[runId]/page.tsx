@@ -89,7 +89,7 @@ export default function SignOffQaRunOverviewPage() {
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900">Supervisor sign-off</h1>
         <p className="text-sm text-gray-600 mt-1">Status: {runStatus || '…'}</p>
-        {job && <ClientConnectJobSummary job={job} compact className="mt-1" emptyText="No Client Connect project linked." />}
+        {job && <ClientConnectJobSummary job={job} compact className="mt-1" />}
         {finalAt && <p className="text-sm text-[#698F00] mt-1">Final approval recorded.</p>}
         {error && <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">{error}</div>}
         {loading && <p className="mt-4 text-gray-600">Loading…</p>}

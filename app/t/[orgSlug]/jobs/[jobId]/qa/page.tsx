@@ -162,7 +162,7 @@ export default function QaHubPage() {
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
           <Link href={todayHref} className="text-sm text-[#698F00] hover:underline">
-            ← Today&apos;s Work
+            ← Today
           </Link>
           <Link href={detailHref} className="ml-4 text-sm text-gray-600 hover:text-[#698F00] hover:underline">
             Full job detail
@@ -174,7 +174,6 @@ export default function QaHubPage() {
               job={job}
               compact
               className="mt-1"
-              emptyText="No Client Connect project linked."
             />
           )}
         </div>
@@ -183,7 +182,7 @@ export default function QaHubPage() {
 
         {clientReady && !loading && runsError && (
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-950">
-            QA status is unavailable. Try again or open Today&apos;s Work.
+            QA status is unavailable. Try again or open Today.
           </div>
         )}
 
@@ -192,7 +191,7 @@ export default function QaHubPage() {
 
             {!runsError && linkedToRealCcProject && !hasCcTradeData && (
               <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-950">
-                Client Connect project details are unavailable. Some checks may not apply until project data loads.
+                Linked project details are unavailable. Some checks may not apply until project data loads.
               </div>
             )}
 

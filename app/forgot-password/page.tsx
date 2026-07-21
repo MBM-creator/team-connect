@@ -1,5 +1,6 @@
 'use client';
 
+import { AppBrandMark } from '@/components/AppBrandMark';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -43,7 +44,8 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white border border-gray-200 rounded-xl shadow-sm p-8">
-        <h1 className="text-2xl font-bold text-gray-900">Reset password</h1>
+        <AppBrandMark />
+        <h1 className="text-2xl font-bold text-gray-900 mt-2">Reset password</h1>
         <p className="mt-2 text-sm text-gray-600">
           Enter your staff email and we&apos;ll send a reset link.
         </p>

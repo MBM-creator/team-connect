@@ -189,7 +189,7 @@ export async function PATCH(
   if (upsertError) {
     const supabaseErr = normalizeSupabaseError(upsertError);
     console.error('[api/stages/[stageId]/end-of-day] Upsert failed:', { requestId, supabaseError: supabaseErr });
-    return serverError(requestId, supabaseErr.code ?? 'EOD_UPSERT', 'Failed to save end-of-day');
+    return serverError(requestId, supabaseErr.code ?? 'EOD_UPSERT', 'Failed to save Daily Report');
   }
 
   const res = NextResponse.json({
