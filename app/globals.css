@@ -12,6 +12,39 @@
   --color-foreground: var(--foreground);
   --font-sans: Arial, Helvetica, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* Site Connect field-app tokens (Jobs page first; adopt elsewhere later) */
+  --color-sc-charcoal: #242926;
+  --color-sc-text: #1d211f;
+  --color-sc-text-secondary: #626a65;
+  --color-sc-euca: #557c68;
+  --color-sc-euca-hover: #456756;
+  --color-sc-euca-tint: #e9f0ec;
+  --color-sc-page: #f5f4f0;
+  --color-sc-surface: #ffffff;
+  --color-sc-surface-2: #fafaf7;
+  --color-sc-border: #dfe2dd;
+  --color-sc-border-strong: #cdd2cc;
+  /* Attention / error — banners and genuine warnings only (not lifecycle chips) */
+  --color-sc-warn: #765619;
+  --color-sc-warn-tint: #f7eed7;
+  --color-sc-warn-border: #e6d19b;
+  --color-sc-danger: #803f39;
+  --color-sc-danger-tint: #f6e7e5;
+  --color-sc-danger-border: #e5bfbb;
+  /* Semantic lifecycle / status chips (Jobs page first) */
+  --color-sc-status-active: #355e4a;
+  --color-sc-status-active-bg: #e5f0e9;
+  --color-sc-status-active-border: #bfd4c7;
+  --color-sc-status-info: #355b73;
+  --color-sc-status-info-bg: #e8f0f5;
+  --color-sc-status-info-border: #c4d6e1;
+  --color-sc-status-complete: #315b43;
+  --color-sc-status-complete-bg: #e1efe6;
+  --color-sc-status-complete-border: #b6d2c0;
+  --color-sc-status-neutral: #59615c;
+  --color-sc-status-neutral-bg: #eceeec;
+  --color-sc-status-neutral-border: #d2d6d2;
 }
 
 body {
@@ -44,36 +77,9 @@ body {
   border-color: #d1d5db !important;
 }
 
-/* Job stage cards: red = not started, yellow = in progress, green = finished */
-[data-job-stage-tone='not_started'] {
-  background-color: #fecaca !important;
-  border-color: #ef4444 !important;
-  border-left-width: 4px !important;
-  color: #991b1b !important;
-}
-
-[data-job-stage-tone='not_started'] .stage-card-muted {
-  color: #b91c1c !important;
-}
-
-[data-job-stage-tone='in_progress'] {
-  background-color: #fef9c3 !important;
-  border-color: #ca8a04 !important;
-  border-left-width: 4px !important;
-  color: #854d0e !important;
-}
-
-[data-job-stage-tone='in_progress'] .stage-card-muted {
-  color: #a16207 !important;
-}
-
-[data-job-stage-tone='finished'] {
-  background-color: #ecfccb !important;
-  border-color: #698f00 !important;
-  border-left-width: 4px !important;
-  color: #3f6212 !important;
-}
-
-[data-job-stage-tone='finished'] .stage-card-muted {
-  color: #4d7c0f !important;
-}
+/*
+ * Job Overview stage cards no longer use full-card red/yellow/green fills.
+ * Stage state is communicated with written labels + shared status chips
+ * (see lib/job-overview-display.ts). Legacy data-job-stage-tone attributes
+ * are ignored for painting so inactive stages are never styled as errors.
+ */

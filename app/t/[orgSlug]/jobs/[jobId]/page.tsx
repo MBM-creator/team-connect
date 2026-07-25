@@ -3,16 +3,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { AppBrandMark } from '@/components/AppBrandMark';
-import { ClientConnectJobSummary } from '@/components/ClientConnectJobSummary';
-import { ClientConnectVariationsSummary } from '@/components/ClientConnectVariationsSummary';
+import { DailyPlanPanel } from '@/components/DailyPlanPanel';
 import { JobNotesEntryCard } from '@/components/JobNotesEntryCard';
+import { JobWorkspaceShell } from '@/components/JobWorkspaceShell';
 import type { CcProject } from '@/lib/cc-client';
-import { ccClientDisplayName, ccProjectPickerLabel } from '@/lib/cc-client-display';
+import { clientFacingDetails } from '@/lib/cc-client-display';
 import { compressImageForUpload } from '@/lib/client-image-compression';
-import { buildJobNotesHref } from '@/lib/job-notes-routes';
-import { todayReportDate } from '@/lib/report-date';
-import { resolveJobStageCardTone } from '@/lib/qa-section-card-style';
+import {
+  MAX_PRE_COMMENCEMENT_PHOTOS,
+  OVERVIEW_QA_TEMPLATE_HELP,
+  canMoveStage,
+  overviewStageChipClass,
+  photoUploadCountLabel,
+  reorderStagesById,
+  resolveOverviewStageState,
+  selectFilesForPhotoUpload,
+  shouldShowSupervisorSignOff,
+  stageHasExplicitFinishedQa,
+  stageMoveAriaLabel,
+  validateNewStageName,
+} from '@/lib/job-overview-display';
+
+const CONTROL_FOCUS =
+  'focus:border-sc-euca focus:outline-none focus:ring-2 focus:ring-sc-euca/30';
+const FOCUS_VISIBLE =
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sc-euca';
+const TRANSITION = 'motion-safe:transition motion-safe:duration-150 motion-reduce:transition-none';
 
 interface Job {
   id: string;
@@ -28,6 +44,7 @@ interface Job {
   cc_client_id?: string | null;
   cc_project_title_snapshot?: string | null;
   cc_client_name_snapshot?: string | null;
+  cc_site_address_snapshot?: string | null;
 }
 
 interface ChecklistTemplateItem {
@@ -81,31 +98,6 @@ interface QaRun {
   supervisor_final_approved_at?: string | null;
 }
 
-const MAX_PHOTOS = 10;
-
-function normaliseMatchText(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function projectIdentity(project: CcProject): string {
-  if (project.cc_job_id) return `cc_job_id:${project.cc_job_id}`;
-  if (project.cc_job_number) return `cc_job_number:${project.cc_job_number}`;
-  if (project.quote_id) return `cc_quote_id:${project.quote_id}`;
-  return `cc_project_id:${project.project_id}`;
-}
-
-function jobIdentityWithProjects(job: Job, projects: CcProject[]): string | null {
-  if (job.cc_job_id) return `cc_job_id:${job.cc_job_id}`;
-  if (job.cc_job_number) return `cc_job_number:${job.cc_job_number}`;
-  if (job.cc_quote_id) return `cc_quote_id:${job.cc_quote_id}`;
-  const project = job.cc_project_id
-    ? projects.find((candidate) => candidate.project_id === job.cc_project_id) ?? null
-    : null;
-  if (project) return projectIdentity(project);
-  if (job.cc_project_id) return `cc_project_id:${job.cc_project_id}`;
-  return null;
-}
-
 /**
  * Detect a mismatch between stage name / CC trade and the selected QA template.
  * Returns a human-readable warning string, or null when no mismatch is detected.
@@ -134,18 +126,6 @@ function getTemplateMismatchWarning(stage: Stage): string | null {
     return `Stage/template mismatch: this stage is labelled "${stage.name}" but is using the Fencing QA template.`;
   }
   return null;
-}
-
-function findSuggestedCcProject(job: Job, projects: CcProject[]): CcProject | null {
-  if (job.cc_project_id || projects.length === 0) return null;
-  const jobName = normaliseMatchText(job.name);
-  if (!jobName) return null;
-
-  return (
-    projects.find((project) => normaliseMatchText(project.project_title) === jobName) ??
-    projects.find((project) => normaliseMatchText(project.project_title).includes(jobName)) ??
-    null
-  );
 }
 
 function qaRunType(run: QaRun): 'paving' | 'irrigation' | 'fencing' {
@@ -187,7 +167,6 @@ export default function JobDetailPage() {
   const jobId = (params?.jobId as string) ?? '';
 
   const [job, setJob] = useState<Job | null>(null);
-  const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [photos, setPhotos] = useState<PreCommencementPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,14 +198,17 @@ export default function JobDetailPage() {
   const [qaRunsError, setQaRunsError] = useState<string | null>(null);
 
   const [ccProjects, setCcProjects] = useState<CcProject[]>([]);
-  const [ccPortalBaseUrl, setCcPortalBaseUrl] = useState<string | null>(null);
-  const [ccProjectsLoading, setCcProjectsLoading] = useState(false);
-  const [ccProjectsError, setCcProjectsError] = useState<string | null>(null);
-  const [ccSelectedProjectId, setCcSelectedProjectId] = useState<string>('');
-  const [ccMappingSaving, setCcMappingSaving] = useState(false);
-  const [ccMappingError, setCcMappingError] = useState<string | null>(null);
-  const [manualCcProjectTitle, setManualCcProjectTitle] = useState('');
-  const [manualCcClientName, setManualCcClientName] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!orgSlug) return;
+    fetch(`/api/auth/me?orgSlug=${encodeURIComponent(orgSlug)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.ok && data?.staff?.role === 'admin') setIsAdmin(true);
+      })
+      .catch(() => setIsAdmin(false));
+  }, [orgSlug]);
 
   useEffect(() => {
     if (!orgSlug || !jobId) {
@@ -259,8 +241,6 @@ export default function JobDetailPage() {
           return;
         }
         setJob(found);
-        setManualCcProjectTitle(found.cc_project_title_snapshot ?? '');
-        setManualCcClientName(found.cc_client_name_snapshot ?? '');
 
         return fetch(`/api/stages?jobId=${encodeURIComponent(found.id)}`);
       })
@@ -293,24 +273,6 @@ export default function JobDetailPage() {
     };
   }, [orgSlug, jobId]);
 
-  useEffect(() => {
-    if (!orgSlug) return;
-    let cancelled = false;
-    fetch(`/api/jobs?orgSlug=${encodeURIComponent(orgSlug)}`)
-      .then((res) => res.json())
-      .then((data: { ok?: boolean; jobs?: Job[] }) => {
-        if (!cancelled && data?.ok && Array.isArray(data.jobs)) {
-          setAllJobs(data.jobs);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setAllJobs([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [orgSlug]);
-
   // Fetch pre-commencement photos when job is available
   useEffect(() => {
     if (!job || !orgSlug) return;
@@ -340,39 +302,25 @@ export default function JobDetailPage() {
     };
   }, [job, orgSlug]);
 
-  // Fetch Client Connect projects when job is available
+  // Fetch Client Connect projects when job is available (for client phone / address)
   useEffect(() => {
     if (!job || !orgSlug) return;
     let cancelled = false;
-    setCcProjectsLoading(true);
-    setCcProjectsError(null);
-    setCcMappingError(null);
-    fetch('/api/cc/projects')
+    fetch(
+      `/api/cc/projects?orgSlug=${encodeURIComponent(orgSlug)}&jobId=${encodeURIComponent(job.id)}`
+    )
       .then((res) => res.json().then((data) => ({ res, data })))
-      .then(({ res, data }: { res: Response; data: { ok?: boolean; projects?: CcProject[]; portalBaseUrl?: string | null; error?: string } }) => {
+      .then(({ res, data }: { res: Response; data: { ok?: boolean; projects?: CcProject[]; error?: string } }) => {
         if (cancelled) return;
         if (!res.ok || !data?.ok || !Array.isArray(data.projects)) {
-          setCcProjectsError(
-            typeof data?.error === 'string'
-              ? data.error
-              : 'Failed to load projects'
-          );
+          setCcProjects([]);
           return;
         }
+        // Server returns only the authorised linked project (0–1 records).
         setCcProjects(data.projects);
-        setCcPortalBaseUrl(typeof data.portalBaseUrl === 'string' ? data.portalBaseUrl : null);
-        const suggestion = findSuggestedCcProject(job, data.projects);
-        if (suggestion) {
-          setCcSelectedProjectId(suggestion.project_id);
-        }
       })
-      .catch((err) => {
-        if (!cancelled) {
-          setCcProjectsError(err instanceof Error ? err.message : 'Failed to load projects');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCcProjectsLoading(false);
+      .catch(() => {
+        if (!cancelled) setCcProjects([]);
       });
     return () => {
       cancelled = true;
@@ -570,16 +518,14 @@ export default function JobDetailPage() {
 
   async function moveStage(stageId: string, direction: 'up' | 'down') {
     if (!orgSlug || stageIdMoving) return;
+    const reorderedStages = reorderStagesById(stages, stageId, direction);
+    if (!reorderedStages) return;
+
     const fromIndex = stages.findIndex((stage) => stage.id === stageId);
     const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-    if (fromIndex < 0 || toIndex < 0 || toIndex >= stages.length) return;
-
-    const nextStages = [...stages];
-    const movingStage = nextStages[fromIndex];
-    const swappedStage = nextStages[toIndex];
-    nextStages[fromIndex] = swappedStage;
-    nextStages[toIndex] = movingStage;
-    const reorderedStages = nextStages.map((stage, index) => ({ ...stage, sort_order: index }));
+    const movingStage = stages[fromIndex];
+    const swappedStage = stages[toIndex];
+    if (!movingStage || !swappedStage) return;
 
     setActiveStageError(null);
     setStageIdMoving(stageId);
@@ -611,11 +557,12 @@ export default function JobDetailPage() {
 
   async function handleAddStage(e: React.FormEvent) {
     e.preventDefault();
-    const trimmed = stageName.trim();
-    if (!trimmed) {
-      setStageError('Stage name is required');
+    const nameError = validateNewStageName(stageName);
+    if (nameError) {
+      setStageError(nameError);
       return;
     }
+    const trimmed = stageName.trim();
     setStageError(null);
     setIsSubmittingStage(true);
     try {
@@ -638,83 +585,12 @@ export default function JobDetailPage() {
     }
   }
 
-  async function saveCcMapping(e: React.FormEvent) {
-    e.preventDefault();
-    if (!job || !orgSlug || !jobId || ccMappingSaving) return;
-    setCcMappingError(null);
-    setCcMappingSaving(true);
-    const selected = ccSelectedProjectId
-      ? ccProjects.find((p) => p.project_id === ccSelectedProjectId)
-      : undefined;
-    const manualTitle = manualCcProjectTitle.trim();
-    const manualClient = manualCcClientName.trim();
-    const body =
-      selected == null && !ccProjectsError
-        ? {
-            cc_project_id: null,
-            cc_client_id: null,
-            cc_project_title_snapshot: null,
-            cc_client_name_snapshot: null,
-          }
-        : selected != null
-          ? {
-            cc_project_id: selected.project_id,
-            cc_client_id: selected.client_id,
-            cc_project_title_snapshot: selected.project_title,
-            cc_client_name_snapshot: ccClientDisplayName(selected),
-          }
-          : {
-            cc_project_id: null,
-            cc_client_id: null,
-            cc_project_title_snapshot: manualTitle || null,
-            cc_client_name_snapshot: manualClient || null,
-          };
-    if (ccProjectsError && !manualTitle) {
-      setCcMappingSaving(false);
-      setCcMappingError('Project title is required while the project picker is unavailable.');
-      return;
-    }
-    try {
-      const res = await fetch(
-        `/api/jobs/${job?.id ?? jobId}/cc-mapping?orgSlug=${encodeURIComponent(orgSlug)}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        }
-      );
-      const data = await res.json();
-      if (res.ok && data?.ok && data.job) {
-        const nextJob = data.job as Job;
-        setJob(nextJob);
-        setManualCcProjectTitle(nextJob.cc_project_title_snapshot ?? '');
-        setManualCcClientName(nextJob.cc_client_name_snapshot ?? '');
-      } else {
-        setCcMappingError(
-          typeof data?.message === 'string'
-            ? data.message
-            : 'Failed to update project link'
-        );
-      }
-    } catch (err) {
-      setCcMappingError(
-        err instanceof Error ? err.message : 'Failed to update project link'
-      );
-    } finally {
-      setCcMappingSaving(false);
-    }
-  }
-
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
-    if (photos.length >= MAX_PHOTOS) {
-      setPhotosError(`Maximum ${MAX_PHOTOS} photos allowed`);
-      return;
-    }
-    const toUpload = files.slice(0, MAX_PHOTOS - photos.length);
-    if (toUpload.length === 0) {
-      setPhotosError(`Maximum ${MAX_PHOTOS} photos allowed`);
+    const { toUpload, error } = selectFilesForPhotoUpload(photos.length, files);
+    if (error || toUpload.length === 0) {
+      setPhotosError(error ?? `Maximum ${MAX_PRE_COMMENCEMENT_PHOTOS} photos allowed`);
       if (photoInputRef.current) photoInputRef.current.value = '';
       return;
     }
@@ -816,20 +692,34 @@ export default function JobDetailPage() {
     }
   }
 
-  const selectedCcProjectId = ccSelectedProjectId || job?.cc_project_id || '';
-  const linkedIdentitiesForOtherJobs = new Set(
-    allJobs
-      .filter((candidate) => candidate.id !== job?.id)
-      .map((candidate) => jobIdentityWithProjects(candidate, ccProjects))
-      .filter((identity): identity is string => Boolean(identity))
-  );
-  const selectableCcProjects = ccProjects.filter((project) => {
-    if (project.project_id === job?.cc_project_id) return true;
-    return !linkedIdentitiesForOtherJobs.has(projectIdentity(project));
-  });
-  const selectedCcProject = selectedCcProjectId
-    ? selectableCcProjects.find((project) => project.project_id === selectedCcProjectId) ?? null
+  function normaliseProjectMatch(value: string | null | undefined): string {
+    return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  const linkedCcProject =
+    (job?.cc_project_id
+      ? ccProjects.find((candidate) => candidate.project_id === job.cc_project_id) ?? null
+      : null) ??
+    (() => {
+      if (!job) return null;
+      const title = normaliseProjectMatch(job.cc_project_title_snapshot ?? job.name);
+      if (!title) return null;
+      const matches = ccProjects.filter(
+        (candidate) => normaliseProjectMatch(candidate.project_title) === title
+      );
+      return matches.length === 1 ? matches[0] : null;
+    })();
+
+  const clientDetails = job
+    ? clientFacingDetails({
+        project: linkedCcProject,
+        clientNameSnapshot: job.cc_client_name_snapshot,
+        projectTitleSnapshot: job.cc_project_title_snapshot,
+        siteAddressSnapshot: job.cc_site_address_snapshot,
+        jobName: job.name,
+      })
     : null;
+
   const currentQaRuns = qaRuns.filter((run) => run.qa_type === 'irrigation' || run.qa_type === 'fencing' || run.qa_type === 'sign_off' || run.setup_version === 2);
   const activeQaRun = currentQaRuns.find((run) => run.status === 'active') ?? null;
   const approvedQaRun =
@@ -842,259 +732,151 @@ export default function JobDetailPage() {
         ? 'QA complete'
         : 'No active QA run';
   const qaStatusClass = qaRunsError
-    ? 'text-amber-800'
+    ? 'text-sc-warn'
     : activeQaRun
-      ? 'text-amber-800'
+      ? 'text-sc-warn'
       : approvedQaRun
-        ? 'text-[#698F00]'
-        : 'text-gray-600';
+        ? 'text-sc-euca'
+        : 'text-sc-text-secondary';
+
+  const activeStageName =
+    job?.active_stage_id
+      ? stages.find((stage) => stage.id === job.active_stage_id)?.name ?? null
+      : null;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-sc-page px-4 py-8 text-sc-text">
+        <p className="mx-auto max-w-7xl text-sm text-sc-text-secondary">Loading…</p>
+      </div>
+    );
+  }
+
+  if (error || !job) {
+    return (
+      <div className="min-h-screen bg-sc-page px-4 py-8 text-sc-text">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-4 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger">
+            {error ?? 'Job not found'}
+          </div>
+          <Link
+            href={`/t/${orgSlug}/jobs`}
+            className="text-sm font-medium text-sc-euca hover:text-sc-euca-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sc-euca"
+          >
+            ← Back to jobs
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-            {error}
+    <JobWorkspaceShell
+      orgSlug={orgSlug}
+      job={job}
+      project={linkedCcProject}
+      activeStageName={activeStageName}
+      isAdmin={isAdmin}
+      afterSummary={
+        <section className="mb-5" aria-labelledby="job-brief-heading">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <h2 id="job-brief-heading" className="text-lg font-semibold text-sc-charcoal">
+              Job brief
+            </h2>
+            <p className="text-sm text-sc-text-secondary">Job details and notes for the team</p>
           </div>
-        )}
-
-        {loading && (
-          <p className="text-gray-600">Loading…</p>
-        )}
-
-        {!loading && !error && job && (
-          <>
-            <div className="mb-6">
-              <AppBrandMark />
-              <div className="mt-2 flex items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{job.name}</h1>
-                  {job.created_at && (
-                    <p className="mt-1 text-sm text-gray-500">{formatDate(job.created_at)}</p>
-                  )}
-                </div>
-                <Link
-                  href={`/t/${orgSlug}/jobs`}
-                  className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:border-[#698F00] hover:text-[#698F00]"
-                >
-                  Home
-                </Link>
+          {briefLoading && (
+            <p className="text-sm text-sc-text-secondary">Loading job brief…</p>
+          )}
+          {!briefLoading && !isEditingBrief && briefError && (
+            <div
+              className="mb-3 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger"
+              role="alert"
+            >
+              {briefError}
+            </div>
+          )}
+          {!briefLoading && !isEditingBrief && (
+            <>
+              <div className="mb-3 rounded-xl border border-sc-border bg-sc-surface px-4 py-3.5 sm:px-5">
+                {brief && brief.content !== null && brief.content !== '' ? (
+                  <pre className="whitespace-pre-wrap break-words font-sans text-sm text-sc-text">
+                    {brief.content}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-sc-text-secondary">No job brief yet.</p>
+                )}
               </div>
-              <Link
-                href={buildJobNotesHref(orgSlug, jobId, {
-                  mode: 'capture',
-                  returnTo: `/t/${orgSlug}/jobs/${jobId}`,
-                  reportDate: todayReportDate(),
-                  stageId: job.active_stage_id ?? null,
-                })}
-                className="mt-2 inline-block text-sm font-medium text-[#698F00] hover:underline"
+              <button
+                type="button"
+                onClick={startEditingBrief}
+                className={`text-sm font-medium text-sc-euca hover:text-sc-euca-hover hover:underline ${FOCUS_VISIBLE}`}
               >
-                Site notes and photos
-              </Link>
-              <Link
-                href={`/t/${orgSlug}/jobs/${jobId}/qa`}
-                className="mt-2 ml-4 inline-block text-sm font-medium text-[#698F00] hover:underline"
-              >
-                QA checks
-              </Link>
+                Edit
+              </button>
+            </>
+          )}
+          {!briefLoading && isEditingBrief && (
+            <>
+              {briefError && (
+                <div
+                  className="mb-3 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger"
+                  role="alert"
+                >
+                  {briefError}
+                </div>
+              )}
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                rows={8}
+                className={`w-full rounded-lg border border-sc-border bg-sc-surface px-4 py-2 text-sm text-sc-text placeholder:text-sc-text-secondary/70 ${CONTROL_FOCUS}`}
+                placeholder="Enter job brief (plain text)..."
+                disabled={isSavingBrief}
+                aria-labelledby="job-brief-heading"
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={saveBrief}
+                  disabled={isSavingBrief}
+                  className={`inline-flex h-11 items-center justify-center rounded-lg bg-sc-euca px-4 text-sm font-medium text-white hover:bg-sc-euca-hover disabled:cursor-not-allowed disabled:opacity-50 ${TRANSITION} ${FOCUS_VISIBLE}`}
+                >
+                  {isSavingBrief ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEditingBrief}
+                  disabled={isSavingBrief}
+                  className={`inline-flex h-11 items-center justify-center rounded-lg border border-sc-border bg-sc-surface px-4 text-sm font-medium text-sc-text hover:bg-sc-surface-2 disabled:opacity-50 ${TRANSITION} ${FOCUS_VISIBLE}`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      }
+    >
+            <div className="mb-6">
+              <DailyPlanPanel
+                orgSlug={orgSlug}
+                jobId={job.id}
+                jobName={clientDetails?.name ?? job.name}
+                highlightOnJobHome
+              />
             </div>
 
-            <section className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Linked project</h2>
-              <ClientConnectJobSummary
-                job={job}
-                className="mb-3"
-              />
-              {ccProjectsLoading && (
-                <p className="text-sm text-gray-600">Loading projects…</p>
-              )}
-              {!ccProjectsLoading && ccProjectsError && (
-                <div className="mb-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm">
-                  Project picker unavailable on this environment: {ccProjectsError}
-                  {job.cc_project_id && (
-                    <span className="block mt-1">
-                      The saved job link above is still stored on the job.
-                    </span>
-                  )}
-                </div>
-              )}
-              <form onSubmit={saveCcMapping} className="space-y-2">
-                {!ccProjectsError ? (
-                  <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Linked project
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white disabled:bg-gray-100"
-                    value={ccSelectedProjectId || job.cc_project_id || ''}
-                    onChange={(e) => {
-                      const nextProjectId = e.target.value;
-                      setCcSelectedProjectId(nextProjectId);
-                      const nextProject = selectableCcProjects.find((project) => project.project_id === nextProjectId);
-                      setManualCcProjectTitle(nextProject?.project_title ?? '');
-                      setManualCcClientName(nextProject ? ccClientDisplayName(nextProject) : '');
-                    }}
-                    disabled={ccProjectsLoading || ccMappingSaving || !!ccProjectsError}
-                  >
-                    <option value="">Not linked</option>
-                    {selectableCcProjects.map((project) => (
-                      <option key={project.project_id} value={project.project_id}>
-                        {ccProjectPickerLabel(project)}
-                      </option>
-                    ))}
-                  </select>
-                  {!ccProjectsError && job.cc_project_title_snapshot && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      Select a different project to replace the saved link.
-                    </p>
-                  )}
-                  </div>
-                ) : (
-                  <div className="grid gap-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Pending linked project
-                      </label>
-                      <input
-                        value={manualCcProjectTitle}
-                        onChange={(e) => setManualCcProjectTitle(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white disabled:bg-gray-100"
-                        placeholder="Project title"
-                        disabled={ccMappingSaving}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Client name
-                      </label>
-                      <input
-                        value={manualCcClientName}
-                        onChange={(e) => setManualCcClientName(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white disabled:bg-gray-100"
-                        placeholder="Optional client name"
-                        disabled={ccMappingSaving}
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Use this only when the picker cannot reach project sync. It stores the typed project and client names on this job as a pending link, so QA and Site Connect screens show the intended project until the live API link can be saved.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {ccMappingError && (
-                  <div className="mb-1 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
-                    {ccMappingError}
-                  </div>
-                )}
-                <button
-                  type="submit"
-                  disabled={ccProjectsLoading || ccMappingSaving}
-                  className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#698F00] text-white text-sm font-medium hover:bg-[#5a7d00] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                >
-                  {ccMappingSaving
-                    ? 'Saving…'
-                    : ccProjectsError
-                      ? 'Save pending mapping'
-                      : 'Save mapping'}
-                </button>
-              </form>
-              {selectedCcProject && (
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Project QA trades</p>
-                    {selectedCcProject.trades.length === 0 ? (
-                      <p className="mt-1 text-sm text-gray-500">No trades are set on this linked project.</p>
-                    ) : (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {selectedCcProject.trades.map((trade) => (
-                          <span
-                            key={trade}
-                            className="inline-flex rounded-full border border-[#698F00]/30 bg-[#698F00]/5 px-2 py-1 text-xs font-medium text-[#5a7d00]"
-                          >
-                            {trade.replace('_', ' ')}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <ClientConnectVariationsSummary
-                    variations={selectedCcProject.variations}
-                  />
-                </div>
-              )}
-            </section>
-
             {job.active_stage_id && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 px-3 mb-4 bg-white/80 border border-gray-200 rounded-lg text-sm text-gray-600">
+              <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-sc-border bg-sc-surface px-3 py-2 text-sm text-sc-text-secondary">
                 <span className={qaStatusClass}>{qaStatusLabel}</span>
-                <Link href={`/t/${orgSlug}/jobs/${jobId}/today`} className="font-medium text-[#698F00] hover:underline">
+                <Link
+                  href={`/t/${orgSlug}/jobs/${jobId}/today`}
+                  className="font-medium text-sc-euca hover:text-sc-euca-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sc-euca"
+                >
                   Open Today
                 </Link>
               </div>
-            )}
-
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Job brief</h2>
-            {briefLoading && (
-              <p className="text-gray-600">Loading job brief…</p>
-            )}
-            {!briefLoading && !isEditingBrief && briefError && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-                {briefError}
-              </div>
-            )}
-            {!briefLoading && !isEditingBrief && (
-              <>
-                <div className="mb-3 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-                  {brief && brief.content !== null && brief.content !== '' ? (
-                    <pre className="whitespace-pre-wrap font-sans text-gray-900 text-sm break-words">
-                      {brief.content}
-                    </pre>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No job brief yet.</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={startEditingBrief}
-                  className="text-sm text-[#698F00] hover:underline font-medium"
-                >
-                  Edit
-                </button>
-              </>
-            )}
-            {!briefLoading && isEditingBrief && (
-              <>
-                {briefError && (
-                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-                    {briefError}
-                  </div>
-                )}
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  rows={8}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#698F00] focus:border-transparent text-gray-900"
-                  placeholder="Enter job brief (plain text)..."
-                  disabled={isSavingBrief}
-                />
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={saveBrief}
-                    disabled={isSavingBrief}
-                    className="bg-[#698F00] text-white py-2 px-4 rounded-lg font-medium hover:bg-[#5a7d00] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isSavingBrief ? 'Saving…' : 'Save'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={cancelEditingBrief}
-                    disabled={isSavingBrief}
-                    className="bg-white text-gray-700 py-2 px-4 rounded-lg border border-gray-300 font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
             )}
 
             <JobNotesEntryCard
@@ -1105,121 +887,176 @@ export default function JobDetailPage() {
               showPreview
             />
 
-            <h2 className="text-lg font-semibold text-gray-900 mb-3 mt-8">
-              Pre-commencement photos ({photos.length}/{MAX_PHOTOS})
-            </h2>
-            {photosLoading && (
-              <p className="text-gray-600">Loading photos…</p>
-            )}
-            {!photosLoading && photosError && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-                {photosError}
-              </div>
-            )}
-            {!photosLoading && photos.length > 0 && (
-              <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {photos.map((photo) => (
-                  <div key={photo.id} className="relative group">
-                    <img
-                      src={photo.url}
-                      alt="Pre-commencement photo"
-                      className="w-full aspect-square object-cover rounded-lg border border-gray-200 bg-gray-100"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePhoto(photo)}
-                      disabled={photoIdRemoving === photo.id}
-                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity disabled:opacity-100"
-                      aria-label="Remove photo"
-                    >
-                      {photoIdRemoving === photo.id ? (
-                        <span className="text-xs">…</span>
-                      ) : (
-                        '×'
-                      )}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {!photosLoading && photos.length < MAX_PHOTOS && (
-              <>
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handlePhotoSelect}
-                  disabled={isUploading}
-                  className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-gray-300 file:bg-white file:text-gray-700 hover:file:bg-gray-50 focus:ring-2 focus:ring-[#698F00] focus:border-transparent disabled:opacity-50"
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  {isUploading ? 'Uploading…' : 'Add photos (max 10).'}
+            <section className="mt-8" aria-labelledby="pre-commencement-photos-heading">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h2
+                  id="pre-commencement-photos-heading"
+                  className="text-lg font-semibold text-sc-charcoal"
+                >
+                  Pre-commencement photos
+                </h2>
+                <p className="text-sm text-sc-text-secondary" aria-live="polite">
+                  {photoUploadCountLabel(photos.length)}
                 </p>
-              </>
-            )}
-            {!photosLoading && photos.length >= MAX_PHOTOS && (
-              <p className="text-gray-500 text-sm">Maximum photos reached.</p>
-            )}
+              </div>
 
-            <h2 className="text-lg font-semibold text-gray-900 mb-3 mt-8">Stages</h2>
-            {stageError && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-                {stageError}
+              {photosLoading && (
+                <p className="text-sm text-sc-text-secondary">Loading photos…</p>
+              )}
+              {!photosLoading && photosError && (
+                <div
+                  className="mb-3 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger"
+                  role="alert"
+                >
+                  {photosError}
+                </div>
+              )}
+              {!photosLoading && photos.length > 0 && (
+                <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {photos.map((photo) => (
+                    <div key={photo.id} className="group relative min-w-0">
+                      <img
+                        src={photo.url}
+                        alt="Pre-commencement photo"
+                        className="aspect-square w-full rounded-lg border border-sc-border bg-sc-surface-2 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto(photo)}
+                        disabled={photoIdRemoving === photo.id}
+                        className={`absolute top-2 right-2 flex h-9 w-9 items-center justify-center rounded-full border border-sc-danger-border bg-sc-danger text-sm font-medium text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 ${TRANSITION} disabled:opacity-100 ${FOCUS_VISIBLE}`}
+                        aria-label="Remove photo"
+                      >
+                        {photoIdRemoving === photo.id ? (
+                          <span className="text-xs">…</span>
+                        ) : (
+                          '×'
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!photosLoading && photos.length < MAX_PRE_COMMENCEMENT_PHOTOS && (
+                <div className="rounded-xl border border-dashed border-sc-border-strong bg-sc-surface px-4 py-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-sc-text">Add site photos before work starts</p>
+                      <p className="mt-0.5 text-sm text-sc-text-secondary" id="pre-commencement-photo-help">
+                        Images only. Up to {MAX_PRE_COMMENCEMENT_PHOTOS} photos.
+                      </p>
+                    </div>
+                    <label
+                      htmlFor="pre-commencement-photo-input"
+                      className={`inline-flex h-11 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-sc-euca px-4 text-sm font-medium text-white hover:bg-sc-euca-hover has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-sc-euca ${TRANSITION}`}
+                    >
+                      <span>{isUploading ? 'Uploading…' : 'Add photos'}</span>
+                      <input
+                        id="pre-commencement-photo-input"
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handlePhotoSelect}
+                        disabled={isUploading}
+                        aria-describedby="pre-commencement-photo-help"
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+              {!photosLoading && photos.length >= MAX_PRE_COMMENCEMENT_PHOTOS && (
+                <p className="text-sm text-sc-text-secondary">Maximum photos reached.</p>
+              )}
+            </section>
+
+            <section className="mt-8" aria-labelledby="stages-heading">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h2 id="stages-heading" className="text-lg font-semibold text-sc-charcoal">
+                  Stages
+                </h2>
+                <p className="text-sm text-sc-text-secondary">
+                  {stages.length === 1 ? '1 stage' : `${stages.length} stages`}
+                </p>
               </div>
-            )}
-            <form onSubmit={handleAddStage} className="mb-4 flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                value={stageName}
-                onChange={(e) => setStageName(e.target.value)}
-                placeholder="Stage name"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#698F00] focus:border-transparent text-gray-900"
-                disabled={isSubmittingStage}
-              />
-              <button
-                type="submit"
-                disabled={isSubmittingStage}
-                className="bg-[#698F00] text-white py-2 px-4 rounded-lg font-medium hover:bg-[#5a7d00] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+
+              {stageError && (
+                <div
+                  className="mb-3 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger"
+                  role="alert"
+                >
+                  {stageError}
+                </div>
+              )}
+
+              <form
+                onSubmit={handleAddStage}
+                className="mb-4 flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center"
               >
-                {isSubmittingStage ? 'Adding…' : 'Add stage'}
-              </button>
-            </form>
-            {activeStageError && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-                {activeStageError}
-              </div>
-            )}
-            {(templateUpdateError || templatesError) && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-                {templateUpdateError ?? templatesError}
-              </div>
-            )}
-            {stages.length === 0 ? (
-              <p className="text-gray-600">No stages yet.</p>
-            ) : (
-              <ul className="space-y-3">
-                {(() => {
-                  const activeStageIndex = job?.active_stage_id
-                    ? stages.findIndex((stage) => stage.id === job.active_stage_id)
-                    : -1;
-                  return stages.map((stage, stageIndex) => {
-                  const isActive = job?.active_stage_id === stage.id;
-                  const isSetting = stageIdSettingActive === stage.id;
-                  const isMoving = stageIdMoving === stage.id;
-                  const isUpdatingTemplate = stageIdUpdatingTemplate === stage.id;
-                  const selectorDisabled = templatesLoading || !!templatesError || isUpdatingTemplate;
-                  const mismatchWarning = getTemplateMismatchWarning(stage);
-                  const templateNameLower = (stage.checklist_templates?.name ?? '').toLowerCase();
-                  const isPavingTemplate = templateNameLower.includes('paving');
-                  const isIrrigationTemplate = templateNameLower.includes('irrigation');
-                  const isFencingTemplate = templateNameLower.includes('fencing');
-                  const hasQaTemplate = isPavingTemplate || isIrrigationTemplate || isFencingTemplate;
-                  const stageCardTone = resolveJobStageCardTone({
-                    stageIndex,
-                    activeStageIndex,
-                    stageId: stage.id,
-                    stageQaType: isPavingTemplate
+                <label className="sr-only" htmlFor="new-stage-name">
+                  Stage name
+                </label>
+                <input
+                  id="new-stage-name"
+                  type="text"
+                  value={stageName}
+                  onChange={(e) => setStageName(e.target.value)}
+                  placeholder="Stage name"
+                  className={`h-11 min-w-0 w-full rounded-lg border border-sc-border bg-sc-surface px-3 text-sm text-sc-text placeholder:text-sc-text-secondary/70 sm:max-w-sm ${CONTROL_FOCUS}`}
+                  disabled={isSubmittingStage}
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmittingStage}
+                  className={`inline-flex h-11 shrink-0 items-center justify-center rounded-lg bg-sc-euca px-4 text-sm font-medium whitespace-nowrap text-white hover:bg-sc-euca-hover disabled:cursor-not-allowed disabled:opacity-50 ${TRANSITION} ${FOCUS_VISIBLE}`}
+                >
+                  {isSubmittingStage ? 'Adding…' : 'Add stage'}
+                </button>
+              </form>
+
+              {activeStageError && (
+                <div
+                  className="mb-3 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger"
+                  role="alert"
+                >
+                  {activeStageError}
+                </div>
+              )}
+              {(templateUpdateError || templatesError) && (
+                <div
+                  className="mb-3 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger"
+                  role="alert"
+                >
+                  {templateUpdateError ?? templatesError}
+                </div>
+              )}
+
+              {stages.length > 0 && (
+                <p className="mb-3 text-sm text-sc-text-secondary">{OVERVIEW_QA_TEMPLATE_HELP}</p>
+              )}
+
+              {stages.length === 0 ? (
+                <p className="rounded-xl border border-sc-border bg-sc-surface px-4 py-6 text-sm text-sc-text-secondary">
+                  No stages yet. Add a stage to organise QA and site work.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {stages.map((stage, stageIndex) => {
+                    const isActive = job?.active_stage_id === stage.id;
+                    const isSetting = stageIdSettingActive === stage.id;
+                    const isMoving = stageIdMoving === stage.id;
+                    const isUpdatingTemplate = stageIdUpdatingTemplate === stage.id;
+                    const selectorDisabled =
+                      templatesLoading || !!templatesError || isUpdatingTemplate;
+                    const mismatchWarning = getTemplateMismatchWarning(stage);
+                    const templateNameLower = (stage.checklist_templates?.name ?? '').toLowerCase();
+                    const isPavingTemplate = templateNameLower.includes('paving');
+                    const isIrrigationTemplate = templateNameLower.includes('irrigation');
+                    const isFencingTemplate = templateNameLower.includes('fencing');
+                    const hasQaTemplate =
+                      isPavingTemplate || isIrrigationTemplate || isFencingTemplate;
+                    const stageQaType = isPavingTemplate
                       ? 'paving'
                       : isIrrigationTemplate
                         ? 'irrigation'
@@ -1227,190 +1064,226 @@ export default function JobDetailPage() {
                           ? 'fencing'
                           : !hasQaTemplate
                             ? 'sign_off'
-                            : null,
-                    qaRuns,
-                    qaRunIncompleteById,
-                  });
-                  return (
-                    <li
-                      key={stage.id}
-                      data-job-stage-tone={stageCardTone}
-                      className="p-4 rounded-lg shadow-sm border"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium stage-card-text">{stage.name}</span>
-                          {stage.created_at && (
-                            <span className="text-sm stage-card-muted">
-                              {formatDate(stage.created_at)}
-                            </span>
-                          )}
-                          {isActive && (
-                            <span className="text-xs font-medium px-2 py-0.5 rounded stage-card-muted bg-black/5">
-                              Active
-                            </span>
-                          )}
-                          {stage.cc_section_id && (
-                            <span className="text-xs font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                              Linked section
-                              {stage.cc_section_trade ? ` · ${stage.cc_section_trade.replace('_', ' ')}` : ''}
-                            </span>
-                          )}
-                          {!isActive && (
+                            : null;
+                    const hasExplicitFinishedQa = stageHasExplicitFinishedQa({
+                      stageId: stage.id,
+                      stageQaType,
+                      qaRuns,
+                      qaRunIncompleteById,
+                    });
+                    const stageState = resolveOverviewStageState({
+                      isActive,
+                      hasExplicitFinishedQa,
+                    });
+                    const showSignOff = shouldShowSupervisorSignOff({
+                      hasQaTemplate,
+                      hasMismatchWarning: !!mismatchWarning,
+                    });
+                    const stageDate = stage.created_at ? formatDate(stage.created_at) : '';
+                    const canMoveUp = canMoveStage(stageIndex, stages.length, 'up') && !stageIdMoving;
+                    const canMoveDown =
+                      canMoveStage(stageIndex, stages.length, 'down') && !stageIdMoving;
+
+                    return (
+                      <li
+                        key={stage.id}
+                        className={[
+                          'rounded-xl border border-sc-border bg-sc-surface p-4 sm:p-5',
+                          stageState.cardAccent ? 'border-l-[3px] border-l-sc-euca' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="min-w-0 break-words text-base font-semibold text-sc-charcoal sm:text-lg">
+                                {stage.name}
+                              </h3>
+                              <span
+                                className={`inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium ${overviewStageChipClass(stageState.chipTone)}`}
+                              >
+                                {stageState.label}
+                              </span>
+                            </div>
+                            {stageDate && (
+                              <p className="text-sm text-sc-text-secondary">{stageDate}</p>
+                            )}
+                            {stageState.showSetActive && (
+                              <button
+                                type="button"
+                                onClick={() => setActiveStage(stage.id)}
+                                disabled={!!stageIdSettingActive}
+                                className={`text-sm font-medium text-sc-text-secondary underline decoration-sc-border underline-offset-2 hover:text-sc-text disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_VISIBLE}`}
+                                aria-label={`Set ${stage.name} as active stage`}
+                              >
+                                {isSetting ? 'Setting…' : 'Set as active'}
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-1">
                             <button
                               type="button"
-                              onClick={() => setActiveStage(stage.id)}
-                              disabled={!!stageIdSettingActive}
-                              className="text-sm text-[#698F00] hover:underline font-medium disabled:opacity-50"
+                              onClick={() => moveStage(stage.id, 'up')}
+                              disabled={!canMoveUp}
+                              className={`inline-flex h-11 min-w-11 items-center justify-center rounded-lg border border-sc-border bg-sc-surface px-3 text-sm font-medium text-sc-text hover:bg-sc-surface-2 disabled:cursor-not-allowed disabled:opacity-40 ${TRANSITION} ${FOCUS_VISIBLE}`}
+                              aria-label={stageMoveAriaLabel(stage.name, 'up')}
                             >
-                              {isSetting ? 'Setting…' : 'Set as active'}
+                              Up
                             </button>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => moveStage(stage.id, 'down')}
+                              disabled={!canMoveDown}
+                              className={`inline-flex h-11 min-w-11 items-center justify-center rounded-lg border border-sc-border bg-sc-surface px-3 text-sm font-medium text-sc-text hover:bg-sc-surface-2 disabled:cursor-not-allowed disabled:opacity-40 ${TRANSITION} ${FOCUS_VISIBLE}`}
+                              aria-label={stageMoveAriaLabel(stage.name, 'down')}
+                            >
+                              Down
+                            </button>
+                            {isMoving && (
+                              <span className="text-xs text-sc-text-secondary" aria-live="polite">
+                                Moving…
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => moveStage(stage.id, 'up')}
-                            disabled={stageIndex === 0 || !!stageIdMoving}
-                            className="px-2 py-1 text-xs font-medium text-gray-700 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                            aria-label={`Move ${stage.name} up`}
-                          >
-                            Up
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveStage(stage.id, 'down')}
-                            disabled={stageIndex === stages.length - 1 || !!stageIdMoving}
-                            className="px-2 py-1 text-xs font-medium text-gray-700 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                            aria-label={`Move ${stage.name} down`}
-                          >
-                            Down
-                          </button>
-                          {isMoving && <span className="text-xs text-gray-500">Moving…</span>}
-                        </div>
-                      </div>
-                      <div className="mt-3 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm stage-card-muted">QA template:</span>
-                          <select
-                            value={stage.checklist_template_id ?? ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setStageTemplate(stage.id, val ? val : null);
-                            }}
-                            disabled={selectorDisabled}
-                            className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#698F00] focus:border-transparent bg-white text-gray-900 disabled:opacity-60 disabled:cursor-not-allowed min-w-0 max-w-full"
-                            aria-label={`QA template for ${stage.name}`}
-                          >
-                            <option value="">None</option>
-                            {templates.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))}
-                          </select>
-                          {isUpdatingTemplate && (
-                            <span className="text-xs stage-card-muted">Saving…</span>
-                          )}
-                        </div>
-                        <p className="text-xs stage-card-muted">
-                          Choose the QA checklist template for this stage. This does not rename the stage.
-                        </p>
-                      </div>
 
-                      {mismatchWarning && (
-                        <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-                          {mismatchWarning}
+                        <div className="mt-4 space-y-2">
+                          <label
+                            className="block text-sm font-medium text-sc-text"
+                            htmlFor={`qa-template-${stage.id}`}
+                          >
+                            QA template
+                          </label>
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <select
+                              id={`qa-template-${stage.id}`}
+                              value={stage.checklist_template_id ?? ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setStageTemplate(stage.id, val ? val : null);
+                              }}
+                              disabled={selectorDisabled}
+                              className={`h-11 min-w-0 max-w-full rounded-lg border border-sc-border bg-sc-surface px-3 text-sm text-sc-text disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-md ${CONTROL_FOCUS}`}
+                              aria-label={`QA template for ${stage.name}`}
+                            >
+                              <option value="">None</option>
+                              {templates.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name}
+                                </option>
+                              ))}
+                            </select>
+                            {isUpdatingTemplate && (
+                              <span className="text-xs text-sc-text-secondary" aria-live="polite">
+                                Saving…
+                              </span>
+                            )}
+                            {!stage.checklist_template_id && (
+                              <span className="text-xs text-sc-text-secondary">No template selected</span>
+                            )}
+                          </div>
                         </div>
-                      )}
 
-                      {isPavingTemplate && !mismatchWarning && (
-                        <div className="mt-2">
-                          <Link
-                            href={stageQaHref(orgSlug, jobId, stage.id, 'paving', qaRuns)}
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#698F00] text-white text-sm font-medium hover:bg-[#5a7d00] transition-colors"
+                        {mismatchWarning && (
+                          <div
+                            className="mt-3 rounded-lg border border-sc-warn-border bg-sc-warn-tint px-3 py-2 text-xs text-sc-warn"
+                            role="status"
                           >
-                            Open Paving QA
-                          </Link>
-                        </div>
-                      )}
-                      {isIrrigationTemplate && !mismatchWarning && (
-                        <div className="mt-2">
-                          <Link
-                            href={stageQaHref(orgSlug, jobId, stage.id, 'irrigation', qaRuns)}
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#698F00] text-white text-sm font-medium hover:bg-[#5a7d00] transition-colors"
-                          >
-                            Open Irrigation QA
-                          </Link>
-                        </div>
-                      )}
-                      {isFencingTemplate && !mismatchWarning && (
-                        <div className="mt-2">
-                          <Link
-                            href={stageQaHref(orgSlug, jobId, stage.id, 'fencing', qaRuns)}
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#698F00] text-white text-sm font-medium hover:bg-[#5a7d00] transition-colors"
-                          >
-                            Open Fencing QA
-                          </Link>
-                        </div>
-                      )}
-                      {!hasQaTemplate && !mismatchWarning && (
-                        <div className="mt-2">
-                          <Link
-                            href={stageSignOffHref(orgSlug, jobId, stage.id, qaRuns)}
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#698F00] text-white text-sm font-medium hover:bg-[#5a7d00] transition-colors"
-                          >
-                            Supervisor sign-off
-                          </Link>
-                        </div>
-                      )}
-                      {stage.checklist_templates?.checklist_template_items &&
-                        stage.checklist_templates.checklist_template_items.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-gray-200">
-                            {(() => {
-                              const items = [...stage.checklist_templates.checklist_template_items].sort(
-                                (a, b) => a.sort_order - b.sort_order
-                              );
-                              const byType = {
-                                tools: items.filter((i) => i.item_type === 'tools'),
-                                materials: items.filter((i) => i.item_type === 'materials'),
-                                qc: items.filter((i) => i.item_type === 'qc'),
-                              };
-                              const groups = [
-                                { key: 'tools' as const, label: 'Tools', list: byType.tools },
-                                { key: 'materials' as const, label: 'Materials', list: byType.materials },
-                                { key: 'qc' as const, label: 'QC', list: byType.qc },
-                              ];
-                              return (
-                                <div className="space-y-2 text-sm">
-                                  {groups.map(
-                                    (g) =>
-                                      g.list.length > 0 && (
-                                        <div key={g.key}>
-                                          <span className="font-medium stage-card-text">{g.label}:</span>
-                                          <ul className="mt-0.5 ml-3 list-disc stage-card-muted">
-                                            {g.list.map((item, idx) => (
-                                              <li key={idx}>{item.label}</li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                      )
-                                  )}
-                                </div>
-                              );
-                            })()}
+                            {mismatchWarning}
                           </div>
                         )}
-                    </li>
-                  );
-                });
-                })()}
-              </ul>
-            )}
 
-          </>
-        )}
-      </div>
-    </div>
+                        {(isPavingTemplate ||
+                          isIrrigationTemplate ||
+                          isFencingTemplate ||
+                          showSignOff) &&
+                          !mismatchWarning && (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {isPavingTemplate && (
+                                <Link
+                                  href={stageQaHref(orgSlug, jobId, stage.id, 'paving', qaRuns)}
+                                  className={`inline-flex h-11 items-center justify-center rounded-lg border border-sc-border bg-sc-surface px-4 text-sm font-medium text-sc-euca hover:bg-sc-euca-tint ${TRANSITION} ${FOCUS_VISIBLE}`}
+                                >
+                                  Open Paving QA
+                                </Link>
+                              )}
+                              {isIrrigationTemplate && (
+                                <Link
+                                  href={stageQaHref(orgSlug, jobId, stage.id, 'irrigation', qaRuns)}
+                                  className={`inline-flex h-11 items-center justify-center rounded-lg border border-sc-border bg-sc-surface px-4 text-sm font-medium text-sc-euca hover:bg-sc-euca-tint ${TRANSITION} ${FOCUS_VISIBLE}`}
+                                >
+                                  Open Irrigation QA
+                                </Link>
+                              )}
+                              {isFencingTemplate && (
+                                <Link
+                                  href={stageQaHref(orgSlug, jobId, stage.id, 'fencing', qaRuns)}
+                                  className={`inline-flex h-11 items-center justify-center rounded-lg border border-sc-border bg-sc-surface px-4 text-sm font-medium text-sc-euca hover:bg-sc-euca-tint ${TRANSITION} ${FOCUS_VISIBLE}`}
+                                >
+                                  Open Fencing QA
+                                </Link>
+                              )}
+                              {showSignOff && (
+                                <Link
+                                  href={stageSignOffHref(orgSlug, jobId, stage.id, qaRuns)}
+                                  className={`inline-flex h-11 items-center justify-center rounded-lg border border-sc-border bg-sc-surface px-4 text-sm font-medium text-sc-text hover:bg-sc-surface-2 ${TRANSITION} ${FOCUS_VISIBLE}`}
+                                >
+                                  Supervisor sign-off
+                                </Link>
+                              )}
+                            </div>
+                          )}
+
+                        {stage.checklist_templates?.checklist_template_items &&
+                          stage.checklist_templates.checklist_template_items.length > 0 && (
+                            <div className="mt-4 border-t border-sc-border pt-3">
+                              {(() => {
+                                const items = [
+                                  ...stage.checklist_templates.checklist_template_items,
+                                ].sort((a, b) => a.sort_order - b.sort_order);
+                                const byType = {
+                                  tools: items.filter((i) => i.item_type === 'tools'),
+                                  materials: items.filter((i) => i.item_type === 'materials'),
+                                  qc: items.filter((i) => i.item_type === 'qc'),
+                                };
+                                const groups = [
+                                  { key: 'tools' as const, label: 'Tools', list: byType.tools },
+                                  {
+                                    key: 'materials' as const,
+                                    label: 'Materials',
+                                    list: byType.materials,
+                                  },
+                                  { key: 'qc' as const, label: 'QC', list: byType.qc },
+                                ];
+                                return (
+                                  <div className="space-y-2 text-sm text-sc-text-secondary">
+                                    {groups.map(
+                                      (g) =>
+                                        g.list.length > 0 && (
+                                          <div key={g.key} className="min-w-0">
+                                            <span className="font-medium text-sc-text">{g.label}:</span>
+                                            <ul className="mt-0.5 ml-3 list-disc break-words">
+                                              {g.list.map((item, idx) => (
+                                                <li key={idx}>{item.label}</li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+    </JobWorkspaceShell>
   );
 }

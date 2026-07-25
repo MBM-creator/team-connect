@@ -326,7 +326,7 @@ export default function DailyPlanPage() {
         {clientReady && !loading && !error && job && formInitial && (
           <div className="space-y-6">
             <div>
-              <Link href={todayHref} className="text-sm text-[#698F00] hover:underline">
+              <Link href={todayHref} className="text-sm text-sc-euca hover:underline">
                 ← Back to Today
               </Link>
               <h1 className="mt-2 text-2xl font-bold text-gray-900">
@@ -355,7 +355,7 @@ export default function DailyPlanPage() {
                 />
                 <Link
                   href={todayHref}
-                  className="mt-4 inline-block text-sm font-medium text-[#698F00] hover:underline"
+                  className="mt-4 inline-block text-sm font-medium text-sc-euca hover:underline"
                 >
                   View on Today →
                 </Link>
@@ -420,7 +420,7 @@ export default function DailyPlanPage() {
                     )}
                     <Link
                       href={todayHref}
-                      className="mt-4 inline-block text-sm font-medium text-[#698F00] hover:underline"
+                      className="mt-4 inline-block text-sm font-medium text-sc-euca hover:underline"
                     >
                       View on Today →
                     </Link>

@@ -19,6 +19,8 @@ type DailyPlanPanelProps = {
   orgSlug: string;
   jobId: string;
   jobName: string;
+  /** When true, emphasises this as the supervisor plan entry point on the job home page. */
+  highlightOnJobHome?: boolean;
 };
 
 type DailyPlanViewProps = {
@@ -143,7 +145,7 @@ export function DailyPlanView({
       {nextPlanHref && (
         <Link
           href={nextPlanHref}
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#698F00] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a7d00] sm:w-auto"
+          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-sc-euca px-4 py-2 text-sm font-medium text-white hover:bg-sc-euca-hover sm:w-auto"
         >
           Plan next workday
         </Link>
@@ -152,7 +154,7 @@ export function DailyPlanView({
       {plan.status === 'active' && orgSlug && jobId && (
         <p className="text-sm text-gray-700">
           Next: record progress in the{' '}
-          <a href="#daily-site-update" className="font-medium text-[#698F00] hover:underline">
+          <a href="#daily-site-update" className="font-medium text-sc-euca hover:underline">
             Daily Site Update
           </a>
           , then complete the Daily Report when outcomes are resolved.
@@ -245,8 +247,8 @@ export function DailyPlanView({
             {plan.risksConstraints?.trim() || 'None recorded'}
           </p>
         </div>
-        <div className="rounded-lg border border-[#698F00]/20 bg-[#698F00]/5 p-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-[#4f6f00]">
+        <div className="rounded-lg border border-sc-euca/20 bg-sc-euca-tint p-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-sc-euca-hover">
             Contingency plan
           </p>
           <p className="mt-1 whitespace-pre-wrap text-gray-900">
@@ -375,7 +377,7 @@ export function DailyPlanStartDayControls({
           type="button"
           disabled={starting}
           onClick={() => setConfirming(true)}
-          className="block w-full min-h-[44px] rounded-lg bg-[#698F00] px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[#5a7d00] disabled:cursor-not-allowed disabled:opacity-60 sm:inline-block sm:w-auto"
+          className="block w-full min-h-[44px] rounded-lg bg-sc-euca px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-sc-euca-hover disabled:cursor-not-allowed disabled:opacity-60 sm:inline-block sm:w-auto"
         >
           Start Day
         </button>
@@ -420,7 +422,7 @@ export function DailyPlanStartDayControls({
           type="button"
           disabled={starting}
           onClick={() => void handleStartDay()}
-          className="min-h-[44px] rounded-lg bg-[#698F00] px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-[#5a7d00] disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-[44px] rounded-lg bg-sc-euca px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-sc-euca-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {starting ? 'Starting…' : 'Start Day'}
         </button>
@@ -429,7 +431,12 @@ export function DailyPlanStartDayControls({
   );
 }
 
-export function DailyPlanPanel({ orgSlug, jobId, jobName }: DailyPlanPanelProps) {
+export function DailyPlanPanel({
+  orgSlug,
+  jobId,
+  jobName,
+  highlightOnJobHome = false,
+}: DailyPlanPanelProps) {
   const [workDate, setWorkDate] = useState(() => todayReportDate());
   const [plan, setPlan] = useState<DailyPlanApi | null>(null);
   const [canEditRole, setCanEditRole] = useState(false);
@@ -486,11 +493,22 @@ export function DailyPlanPanel({ orgSlug, jobId, jobName }: DailyPlanPanelProps)
   const showStartDay = Boolean(ui?.showStartDay || plan?.canStartDay);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+    <div
+      id={highlightOnJobHome ? 'supervisor-daily-plan' : undefined}
+      className={`rounded-lg border bg-white p-5 shadow-sm ${
+        highlightOnJobHome ? 'border-sc-euca/40' : 'border-gray-200'
+      }`}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Daily Plan</h2>
-          <p className="mt-1 text-sm text-gray-600">{jobName}</p>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {highlightOnJobHome ? 'Supervisor Daily Plan' : 'Daily Plan'}
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            {highlightOnJobHome
+              ? 'Site supervisors add today\'s plan here — outcomes, crew, materials and risks.'
+              : jobName}
+          </p>
         </div>
         <div className="w-full sm:w-auto">
           <label htmlFor="daily-plan-work-date" className="block text-xs font-medium text-gray-600">
@@ -521,7 +539,7 @@ export function DailyPlanPanel({ orgSlug, jobId, jobName }: DailyPlanPanelProps)
         <div
           role="status"
           aria-live="polite"
-          className="mt-4 rounded-lg border border-[#698F00]/30 bg-[#698F00]/10 p-3 text-sm text-[#4f6f00]"
+          className="mt-4 rounded-lg border border-sc-euca/30 bg-sc-euca-tint p-3 text-sm text-sc-euca-hover"
         >
           {success}
         </div>
@@ -533,7 +551,7 @@ export function DailyPlanPanel({ orgSlug, jobId, jobName }: DailyPlanPanelProps)
           {canEditRole ? (
             <Link
               href={formHref}
-              className="block w-full min-h-[44px] rounded-lg bg-[#698F00] px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[#5a7d00] sm:inline-block sm:w-auto"
+              className="block w-full min-h-[44px] rounded-lg bg-sc-euca px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-sc-euca-hover sm:inline-block sm:w-auto"
             >
               Create Daily Plan
             </Link>
@@ -559,7 +577,7 @@ export function DailyPlanPanel({ orgSlug, jobId, jobName }: DailyPlanPanelProps)
             {showEdit && (
               <Link
                 href={editHref}
-                className="block w-full min-h-[44px] rounded-lg border border-[#698F00]/30 px-4 py-3 text-center text-sm font-medium text-[#698F00] transition-colors hover:bg-[#698F00]/5 sm:inline-block sm:w-auto"
+                className="block w-full min-h-[44px] rounded-lg border border-sc-euca/30 px-4 py-3 text-center text-sm font-medium text-sc-euca transition-colors hover:bg-sc-euca-tint sm:inline-block sm:w-auto"
               >
                 Edit Daily Plan
               </Link>

@@ -5,6 +5,11 @@ import { guardStaffApi } from '@/lib/guard-staff-api';
 import { ccProjectJobIdentity, fetchCcProjects } from '@/lib/cc-client';
 import type { CcProject } from '@/lib/cc-client';
 import { ccClientDisplayName } from '@/lib/cc-client-display';
+import {
+  ccIntegrationUnavailableWarning,
+  isCcIntegrationOrgAllowed,
+} from '@/lib/cc-integration-access';
+import { enrichJobsWithSiteLocation } from '@/lib/job-site-location';
 import { syncCcProjectStagesForJob } from '@/lib/sync-cc-project-stages';
 import { randomUUID } from 'crypto';
 
@@ -108,6 +113,40 @@ async function loadSavedJobsForOrg(organisationId: string, requestId: string): P
   return (jobs ?? []) as JobRow[];
 }
 
+async function loadCcProjectsForJobEnrichment(
+  organisationId: string,
+  requestId: string
+): Promise<CcProject[]> {
+  if (!isCcIntegrationOrgAllowed(organisationId)) {
+    return [];
+  }
+  try {
+    return await fetchCcProjects(organisationId, requestId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to load Client Connect projects';
+    console.warn('[api/jobs] CC enrichment fetch skipped:', { requestId, error: message });
+    return [];
+  }
+}
+
+async function respondWithJobs(
+  jobs: JobRow[],
+  organisationId: string,
+  requestId: string,
+  extra: Record<string, unknown> = {},
+  projects?: CcProject[]
+) {
+  const resolvedProjects =
+    projects ?? (await loadCcProjectsForJobEnrichment(organisationId, requestId));
+  const res = NextResponse.json({
+    ok: true,
+    jobs: enrichJobsWithSiteLocation(jobs, resolvedProjects),
+    ...extra,
+  });
+  res.headers.set('x-request-id', requestId);
+  return res;
+}
+
 async function upsertCcProjectJob(
   organisationId: string,
   existingJob: JobRow | null,
@@ -203,6 +242,12 @@ export async function GET(request: NextRequest) {
     return res;
   }
 
+  // Authoritative org id from authenticated staff context — never trust a browser org id.
+  const organisationId = staffAuth.org.id;
+  if (organisationId !== org.id) {
+    return jsonError('You do not have access to this organisation', 403, requestId);
+  }
+
   const jobIdFilter = request.nextUrl.searchParams.get('jobId')?.trim() ?? '';
 
   if (jobIdFilter) {
@@ -213,7 +258,7 @@ export async function GET(request: NextRequest) {
     const { data: jobs, error: jobsError } = await supabaseAdmin
       .from('jobs')
       .select(JOB_SELECT)
-      .eq('organisation_id', org.id)
+      .eq('organisation_id', organisationId)
       .eq('id', jobIdFilter);
 
     if (jobsError) {
@@ -222,27 +267,36 @@ export async function GET(request: NextRequest) {
       return serverError(requestId, supabaseErr.code ?? 'JOBS_LOOKUP', 'Failed to load job');
     }
 
-    const res = NextResponse.json({ ok: true, jobs: jobs ?? [] });
-    res.headers.set('x-request-id', requestId);
-    return res;
+    return respondWithJobs((jobs ?? []) as JobRow[], organisationId, requestId);
+  }
+
+  if (!isCcIntegrationOrgAllowed(organisationId)) {
+    try {
+      const jobs = await loadSavedJobsForOrg(organisationId, requestId);
+      return respondWithJobs(jobs, organisationId, requestId, {
+        ccUnavailable: true,
+        warning: ccIntegrationUnavailableWarning(),
+      }, []);
+    } catch (fallbackErr) {
+      const fallbackMessage = fallbackErr instanceof Error && fallbackErr.message
+        ? fallbackErr.message
+        : 'Failed to list jobs';
+      return serverError(requestId, 'JOBS_FALLBACK', fallbackMessage);
+    }
   }
 
   let projects: CcProject[];
   try {
-    projects = await fetchCcProjects(requestId);
+    projects = await fetchCcProjects(organisationId, requestId);
   } catch (err) {
     const message = err instanceof Error && err.message ? err.message : 'Failed to load Client Connect projects';
     console.error('[api/jobs] GET CC fetch failed:', { requestId, error: message });
     try {
-      const jobs = await loadSavedJobsForOrg(org.id as string, requestId);
-      const res = NextResponse.json({
-        ok: true,
-        jobs,
+      const jobs = await loadSavedJobsForOrg(organisationId, requestId);
+      return respondWithJobs(jobs, organisationId, requestId, {
         ccUnavailable: true,
         warning: PROJECT_SYNC_UNAVAILABLE_WARNING,
-      });
-      res.headers.set('x-request-id', requestId);
-      return res;
+      }, []);
     } catch (fallbackErr) {
       const fallbackMessage = fallbackErr instanceof Error && fallbackErr.message
         ? fallbackErr.message
@@ -254,7 +308,7 @@ export async function GET(request: NextRequest) {
   const { data: existingJobs, error: jobsError } = await supabaseAdmin
     .from('jobs')
     .select(JOB_SELECT)
-    .eq('organisation_id', org.id)
+    .eq('organisation_id', organisationId)
     .not('cc_project_id', 'is', null);
 
   if (jobsError) {
@@ -280,7 +334,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const job = await upsertCcProjectJob(org.id as string, existingJob, project, requestId);
+      const job = await upsertCcProjectJob(organisationId, existingJob, project, requestId);
       syncedJobs.push(job);
       usedJobIds.add(job.id);
     } catch (err) {
@@ -291,9 +345,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const res = NextResponse.json({ ok: true, jobs: syncedJobs });
-  res.headers.set('x-request-id', requestId);
-  return res;
+  return respondWithJobs(syncedJobs, organisationId, requestId, {}, projects);
 }
 
 export async function POST(request: NextRequest) {
@@ -361,15 +413,23 @@ export async function POST(request: NextRequest) {
     siteId = site.id;
   }
 
+  const organisationId = staffAuth.org.id;
+
   let ccProject: CcProject | null = null;
   if (ccProjectId) {
+    if (!isCcIntegrationOrgAllowed(organisationId)) {
+      return jsonError(ccIntegrationUnavailableWarning(), 403, requestId);
+    }
     let projects;
     try {
-      projects = await fetchCcProjects(requestId);
+      projects = await fetchCcProjects(organisationId, requestId);
     } catch (err) {
       const message = err instanceof Error && err.message ? err.message : 'Failed to load Client Connect projects';
       console.error('[api/jobs] POST CC fetch failed:', { requestId, error: message });
-      const res = NextResponse.json({ ok: false, requestId, message }, { status: 502 });
+      const res = NextResponse.json(
+        { ok: false, requestId, message: 'Project sync is unavailable.' },
+        { status: 502 }
+      );
       res.headers.set('x-request-id', requestId);
       return res;
     }
@@ -382,7 +442,7 @@ export async function POST(request: NextRequest) {
     const { data: linkedJobs, error: linkedJobsError } = await supabaseAdmin
       .from('jobs')
       .select(JOB_SELECT)
-      .eq('organisation_id', org.id)
+      .eq('organisation_id', organisationId)
       .not('cc_project_id', 'is', null);
     if (linkedJobsError) {
       const supabaseErr = normalizeSupabaseError(linkedJobsError);
@@ -422,7 +482,7 @@ export async function POST(request: NextRequest) {
   const { data: job, error: insertError } = await supabaseAdmin
     .from('jobs')
     .insert({
-      organisation_id: org.id,
+      organisation_id: organisationId,
       name: jobName,
       site_id: siteId,
       cc_project_id: ccProject?.project_id ?? null,

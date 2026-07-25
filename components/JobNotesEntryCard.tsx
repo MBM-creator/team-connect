@@ -34,14 +34,14 @@ const COPY: Record<
     helper: 'Quickly add today\u2019s notes, photos or videos for this job.',
     cta: 'Add site note / photo',
     ctaClass:
-      'block w-full rounded-lg bg-[#698F00] px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[#5a7d00] sm:inline-block sm:w-auto',
+      'block w-full rounded-lg bg-sc-euca px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-sc-euca-hover sm:inline-block sm:w-auto',
   },
   archive: {
     title: 'Job notes, photos and videos',
     helper: 'View the full history of site notes, progress photos and videos for this job.',
     cta: 'View job notes',
     ctaClass:
-      'inline-block rounded-lg border border-[#698F00]/30 px-4 py-2 text-sm font-medium text-[#698F00] transition-colors hover:bg-[#698F00]/5',
+      'inline-block rounded-lg border border-sc-euca/30 px-4 py-2 text-sm font-medium text-sc-euca transition-colors hover:bg-sc-euca-tint',
   },
 };
 

@@ -110,14 +110,14 @@ type DailyPlanFormProps = {
 };
 
 const fieldClass =
-  'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base text-gray-900 shadow-sm focus:border-[#698F00] focus:outline-none focus:ring-1 focus:ring-[#698F00]';
+  'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base text-gray-900 shadow-sm focus:border-sc-euca focus:outline-none focus:ring-1 focus:ring-sc-euca';
 const labelClass = 'block text-sm font-medium text-gray-900';
 const btnSecondary =
   'min-h-[44px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50';
 const btnDanger =
   'min-h-[44px] rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50';
 const btnPrimary =
-  'min-h-[44px] rounded-lg bg-[#698F00] px-3 py-2 text-sm font-medium text-white hover:bg-[#5a7d00] disabled:opacity-50';
+  'min-h-[44px] rounded-lg bg-sc-euca px-3 py-2 text-sm font-medium text-white hover:bg-sc-euca-hover disabled:opacity-50';
 
 export function DailyPlanForm({
   initial,
@@ -432,7 +432,7 @@ export function DailyPlanForm({
                   Outcome {index + 1}
                 </label>
                 {outcome.sourceCarryForwardId && (
-                  <span className="text-xs font-medium text-[#4f6f00]">From carry-forward</span>
+                  <span className="text-xs font-medium text-sc-euca-hover">From carry-forward</span>
                 )}
               </div>
               <textarea
@@ -723,7 +723,7 @@ export function DailyPlanForm({
         <div
           role="status"
           aria-live="polite"
-          className="rounded-lg border border-[#698F00]/30 bg-[#698F00]/10 p-3 text-sm text-[#4f6f00]"
+          className="rounded-lg border border-sc-euca/30 bg-sc-euca-tint p-3 text-sm text-sc-euca-hover"
         >
           {success}
         </div>
@@ -732,7 +732,7 @@ export function DailyPlanForm({
       <button
         type="submit"
         disabled={submitting}
-        className="block w-full min-h-[48px] rounded-lg bg-[#698F00] px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[#5a7d00] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        className="block w-full min-h-[48px] rounded-lg bg-sc-euca px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-sc-euca-hover disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
       >
         {submitting ? 'Saving…' : 'Save Daily Plan'}
       </button>

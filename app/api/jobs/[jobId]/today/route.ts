@@ -351,7 +351,7 @@ export async function GET(
     console.warn('[api/jobs/[jobId]/today] QA warning skipped:', { requestId, qaErr });
   }
 
-  const ccProject = await loadCcProjectForJob(job, requestId);
+  const ccProject = await loadCcProjectForJob(job, org.id as string, requestId);
 
   const body: {
     ok: true;

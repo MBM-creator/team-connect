@@ -14,7 +14,8 @@ function isProtectedApiPath(pathname: string): boolean {
     pathname.startsWith('/api/jobs/') ||
     pathname.startsWith('/api/stages/') ||
     pathname.startsWith('/api/admin/') ||
-    pathname.startsWith('/api/checklist-templates')
+    pathname.startsWith('/api/checklist-templates') ||
+    pathname.startsWith('/api/cc/')
   );
 }
 
@@ -139,5 +140,6 @@ export const config = {
     '/api/stages/:path*',
     '/api/admin/:path*',
     '/api/checklist-templates/:path*',
+    '/api/cc/:path*',
   ],
 };

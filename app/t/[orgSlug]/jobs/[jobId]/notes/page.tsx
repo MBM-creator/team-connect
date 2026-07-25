@@ -5,8 +5,8 @@
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { ClientConnectJobSummary } from '@/components/ClientConnectJobSummary';
 import { JobActivityFeed } from '@/components/JobActivityFeed';
+import { JobWorkspaceShell } from '@/components/JobWorkspaceShell';
 import {
   parseJobNotesMode,
   parseJobNotesReportDate,
@@ -21,6 +21,8 @@ interface Job {
   cc_client_id?: string | null;
   cc_project_title_snapshot?: string | null;
   cc_client_name_snapshot?: string | null;
+  cc_site_address_snapshot?: string | null;
+  cc_job_number?: string | null;
 }
 
 interface Stage {
@@ -44,6 +46,7 @@ export default function JobNotesPage() {
 
   const [job, setJob] = useState<Job | null>(null);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clientReady, setClientReady] = useState(false);
@@ -51,6 +54,16 @@ export default function JobNotesPage() {
   useEffect(() => {
     setClientReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!orgSlug) return;
+    fetch(`/api/auth/me?orgSlug=${encodeURIComponent(orgSlug)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.ok && data?.staff?.role === 'admin') setIsAdmin(true);
+      })
+      .catch(() => setIsAdmin(false));
+  }, [orgSlug]);
 
   useEffect(() => {
     if (!orgSlug || !jobId) {
@@ -98,47 +111,53 @@ export default function JobNotesPage() {
       ? `/t/${orgSlug}/jobs/${jobId}/today`
       : `/t/${orgSlug}/jobs/${jobId}`;
   const backHref = returnTo ?? fallbackReturnTo;
+  const activeStageName =
+    job?.active_stage_id
+      ? stages.find((stage) => stage.id === job.active_stage_id)?.name ?? null
+      : null;
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        {(!clientReady || loading) && <p className="text-gray-600">Loading…</p>}
+  if (!clientReady || loading) {
+    return (
+      <div className="min-h-screen bg-sc-page px-4 py-8 text-sc-text">
+        <p className="mx-auto max-w-7xl text-sm text-sc-text-secondary">Loading…</p>
+      </div>
+    );
+  }
 
-        {clientReady && error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-            {error}
-            <Link href={backHref} className="mt-3 block text-sm font-medium text-[#698F00] hover:underline">
+  if (error || !job) {
+    return (
+      <div className="min-h-screen bg-sc-page px-4 py-8 text-sc-text">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger">
+            {error ?? 'Job not found'}
+            <Link
+              href={backHref}
+              className="mt-3 block text-sm font-medium text-sc-euca hover:text-sc-euca-hover"
+            >
               ← Back
             </Link>
           </div>
-        )}
-
-        {clientReady && !loading && !error && job && (
-          <div className="space-y-6">
-            <div>
-              <Link href={backHref} className="text-sm text-[#698F00] hover:underline">
-                ← Back
-              </Link>
-              <h2 className="mt-2 text-lg font-semibold text-gray-900">{job.name}</h2>
-              <ClientConnectJobSummary
-                job={job}
-                compact
-                className="mt-1"
-              />
-            </div>
-
-            <JobActivityFeed
-              orgSlug={orgSlug}
-              jobId={jobId}
-              stages={stages.map((stage) => ({ id: stage.id, name: stage.name }))}
-              activeStageId={job.active_stage_id ?? null}
-              mode={mode}
-              initialReportDate={mode === 'capture' ? reportDate : undefined}
-              initialStageId={initialStageId}
-            />
-          </div>
-        )}
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <JobWorkspaceShell
+      orgSlug={orgSlug}
+      job={job}
+      activeStageName={activeStageName}
+      isAdmin={isAdmin}
+    >
+      <JobActivityFeed
+        orgSlug={orgSlug}
+        jobId={jobId}
+        stages={stages.map((stage) => ({ id: stage.id, name: stage.name }))}
+        activeStageId={job.active_stage_id ?? null}
+        mode={mode}
+        initialReportDate={mode === 'capture' ? reportDate : undefined}
+        initialStageId={initialStageId}
+      />
+    </JobWorkspaceShell>
   );
 }
