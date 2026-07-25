@@ -5,7 +5,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { ClientConnectJobSummary } from '@/components/ClientConnectJobSummary';
+import { JobWorkspaceShell } from '@/components/JobWorkspaceShell';
 import type { CcProject } from '@/lib/cc-client';
 import { getApplicableQaChecks } from '@/lib/cc-project-context';
 import type { StaffRole } from '@/lib/daily-site-update-shared';
@@ -27,11 +27,15 @@ import {
 } from '@/lib/qa-hub-display';
 
 interface JobContext {
+  id?: string;
   name?: string;
+  active_stage_id?: string | null;
   cc_project_id?: string | null;
   cc_client_id?: string | null;
   cc_project_title_snapshot?: string | null;
   cc_client_name_snapshot?: string | null;
+  cc_site_address_snapshot?: string | null;
+  cc_job_number?: string | null;
 }
 
 export default function QaHubPage() {
@@ -86,9 +90,8 @@ export default function QaHubPage() {
     };
   }, [orgSlug, jobId]);
 
-  const todayHref = `/t/${orgSlug}/jobs/${jobId}/today`;
-  const detailHref = `/t/${orgSlug}/jobs/${jobId}`;
   const isSupervisorOrAdmin = viewerRole === 'supervisor' || viewerRole === 'admin';
+  const isAdmin = viewerRole === 'admin';
   const linkedToRealCcProject = Boolean(job?.cc_project_id);
   const hasCcTradeData = Boolean(ccProject);
   const applicableChecks = getApplicableQaChecks(ccProject);
@@ -157,46 +160,49 @@ export default function QaHubPage() {
     };
   }, [orgSlug, jobId, isSupervisorOrAdmin, loading, runsError, currentRuns]);
 
+  if (!clientReady || loading) {
+    return (
+      <div className="min-h-screen bg-sc-page px-4 py-8 text-sc-text">
+        <p className="mx-auto max-w-7xl text-sm text-sc-text-secondary">Loading…</p>
+      </div>
+    );
+  }
+
+  const shellJob = {
+    id: jobId,
+    name: job?.name ?? 'QA checks',
+    active_stage_id: job?.active_stage_id ?? null,
+    cc_project_id: job?.cc_project_id ?? null,
+    cc_project_title_snapshot: job?.cc_project_title_snapshot ?? null,
+    cc_client_name_snapshot: job?.cc_client_name_snapshot ?? null,
+    cc_site_address_snapshot: job?.cc_site_address_snapshot ?? null,
+    cc_job_number: job?.cc_job_number ?? null,
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
-          <Link href={todayHref} className="text-sm text-[#698F00] hover:underline">
-            ← Today
-          </Link>
-          <Link href={detailHref} className="ml-4 text-sm text-gray-600 hover:text-[#698F00] hover:underline">
-            Full job detail
-          </Link>
-          <h1 className="mt-2 text-2xl font-bold text-gray-900">{job?.name ?? 'QA checks'}</h1>
-          <p className="mt-1 text-sm text-gray-600">Quality checks for this job.</p>
-          {job && (
-            <ClientConnectJobSummary
-              job={job}
-              compact
-              className="mt-1"
-            />
-          )}
-        </div>
-
-        {(!clientReady || loading) && <p className="text-gray-600">Loading…</p>}
-
-        {clientReady && !loading && runsError && (
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-950">
+    <JobWorkspaceShell
+      orgSlug={orgSlug}
+      job={shellJob}
+      project={ccProject}
+      isAdmin={isAdmin}
+    >
+        {runsError && (
+          <div className="mb-4 rounded-xl border border-sc-warn-border bg-sc-warn-tint px-4 py-3 text-sm text-sc-warn">
             QA status is unavailable. Try again or open Today.
           </div>
         )}
 
-        {clientReady && !loading && !runsError && viewerRole && (
+        {!runsError && viewerRole && (
           <div className="space-y-6">
 
-            {!runsError && linkedToRealCcProject && !hasCcTradeData && (
-              <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-950">
-                Linked project details are unavailable. Some checks may not apply until project data loads.
+            {linkedToRealCcProject && !hasCcTradeData && (
+              <div className="rounded-xl border border-sc-warn-border bg-sc-warn-tint p-4 text-sm text-sc-warn">
+                Project details are unavailable. Some checks may not apply until project data loads.
               </div>
             )}
 
             <section>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Current QA</h2>
+              <h2 className="mb-2 text-lg font-semibold text-sc-charcoal">Current QA</h2>
               {currentRuns.length === 0 ? (
                 <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                   <p className="text-sm text-gray-700">No current QA checklist on this job.</p>
@@ -398,7 +404,6 @@ export default function QaHubPage() {
             )}
           </div>
         )}
-      </div>
-    </div>
+    </JobWorkspaceShell>
   );
 }

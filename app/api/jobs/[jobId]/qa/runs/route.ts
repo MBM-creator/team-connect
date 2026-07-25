@@ -56,7 +56,7 @@ export async function GET(
     return serverError(requestId);
   }
 
-  const ccProject = await loadCcProjectForJob(v.job, requestId);
+  const ccProject = await loadCcProjectForJob(v.job, v.organisationId, requestId);
   const res = NextResponse.json({
     ok: true,
     job: v.job,

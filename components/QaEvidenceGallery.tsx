@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { qaRunPath, qaSupervisorPath } from '@/lib/admin-dashboard/qa-links';
+import { sanitizeClientNameSnapshot } from '@/lib/cc-client-display';
 import type { QaType } from '@/lib/qa-run-bundle';
 
 type EvidenceSection = {
@@ -152,8 +153,10 @@ export function QaEvidenceGallery({
     <div className="space-y-4">
       <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <h1 className="text-xl font-bold text-gray-900">{data.job.cc_project_title_snapshot ?? data.job.name}</h1>
-        {data.job.cc_client_name_snapshot && (
-          <p className="text-sm text-gray-600">{data.job.cc_client_name_snapshot}</p>
+        {sanitizeClientNameSnapshot(data.job.cc_client_name_snapshot) && (
+          <p className="text-sm text-gray-600">
+            {sanitizeClientNameSnapshot(data.job.cc_client_name_snapshot)}
+          </p>
         )}
         <p className="mt-2 text-sm text-gray-700">
           {data.run.qa_type_label}

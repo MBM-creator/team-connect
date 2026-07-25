@@ -1,4 +1,4 @@
-import { LINKED_PROJECT_LABEL } from '@/lib/app-branding';
+import { sanitizeClientNameSnapshot } from '@/lib/cc-client-display';
 
 type ClientConnectJob = {
   cc_project_id?: string | null;
@@ -17,16 +17,18 @@ type ClientConnectJobSummaryProps = {
 
 export function ClientConnectJobSummary({
   job,
-  emptyText = 'No linked project yet.',
+  emptyText = 'No client details yet.',
   className = '',
   compact = false,
 }: ClientConnectJobSummaryProps) {
+  const clientName = sanitizeClientNameSnapshot(job.cc_client_name_snapshot);
+  const projectTitle = job.cc_project_title_snapshot?.trim() || null;
   const hasLink = Boolean(
     job.cc_project_id ||
       job.cc_quote_id ||
       job.cc_client_id ||
-      job.cc_project_title_snapshot ||
-      job.cc_client_name_snapshot
+      projectTitle ||
+      clientName
   );
 
   if (!hasLink) {
@@ -37,27 +39,28 @@ export function ClientConnectJobSummary({
     );
   }
 
-  const title = job.cc_project_title_snapshot || LINKED_PROJECT_LABEL;
-  const client = job.cc_client_name_snapshot;
+  const title = clientName || projectTitle || 'Client';
   const isPending = !job.cc_project_id && !job.cc_quote_id;
 
   if (compact) {
     return (
       <p className={`text-sm text-gray-600 ${className}`.trim()}>
-        {isPending ? 'Pending link:' : `${LINKED_PROJECT_LABEL}:`}{' '}
+        {isPending ? 'Pending: ' : ''}
         <span className="font-medium text-gray-900">{title}</span>
-        {client ? ` — ${client}` : ''}
+        {clientName && projectTitle && clientName !== projectTitle ? ` — ${projectTitle}` : ''}
       </p>
     );
   }
 
   return (
     <div className={`rounded-lg border border-[#698F00]/30 bg-[#698F00]/5 px-3 py-2 ${className}`.trim()}>
-      <p className="text-xs font-medium uppercase tracking-wide text-[#5a7d00]">
-        {isPending ? 'Pending link' : LINKED_PROJECT_LABEL}
-      </p>
-      <p className="mt-0.5 text-sm font-medium text-gray-900">{title}</p>
-      {client && <p className="text-sm text-gray-600">{client}</p>}
+      {isPending && (
+        <p className="text-xs font-medium uppercase tracking-wide text-[#5a7d00]">Pending</p>
+      )}
+      <p className={`text-sm font-medium text-gray-900 ${isPending ? 'mt-0.5' : ''}`.trim()}>{title}</p>
+      {clientName && projectTitle && clientName !== projectTitle && (
+        <p className="text-sm text-gray-600">{projectTitle}</p>
+      )}
     </div>
   );
 }

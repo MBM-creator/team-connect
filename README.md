@@ -137,6 +137,8 @@ Visit `http://localhost:3000` or go directly to `http://localhost:3000/t/madebym
    - `RESEND_API_KEY` - Your Resend API key (so notification emails are sent when a report is submitted)
    - `RESEND_FROM_EMAIL` (optional) - e.g. `Site Connect <reports@yourdomain.com>`; must use a verified domain in Resend. If omitted, defaults to `onboarding@resend.dev`.
    - `APP_URL` (optional) - Public app URL for auth emails, e.g. `https://qa.madebymobbs.com.au`. If omitted in production, defaults to `https://qa.madebymobbs.com.au`.
+   - `CC_BASE_URL` / `CC_INTERNAL_API_KEY` (optional) - Client Connect internal project feed for the MBM bridge.
+   - `CC_INTEGRATION_ORG_IDS` (optional) - Comma-separated Site Connect organisation UUIDs allowed to use that bridge. **Default deny.** Temporary feature gate only — not Client Connect tenant isolation. Set to the Made By Mobbs `organisations.id` in production/staging.
 
 4. Deploy
 

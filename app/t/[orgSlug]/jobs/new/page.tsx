@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type { CcProject } from '@/lib/cc-client';
-import { ccClientDisplayName } from '@/lib/cc-client-display';
+import { ccClientDisplayName, ccClientPhone, ccProjectPickerLabel } from '@/lib/cc-client-display';
 
 type CreateMode = 'client-connect' | 'manual';
 
@@ -37,13 +37,21 @@ export default function NewJobPage() {
     let cancelled = false;
     setCcLoading(true);
     setCcError(null);
-    fetch('/api/cc/projects')
+    fetch(`/api/cc/projects?orgSlug=${encodeURIComponent(orgSlug)}`)
       .then((res) => res.json().then((data) => ({ res, data })))
-      .then(({ res, data }: { res: Response; data: { ok?: boolean; projects?: CcProject[]; error?: string } }) => {
+      .then(({ res, data }: { res: Response; data: { ok?: boolean; projects?: CcProject[]; error?: string; message?: string; ccUnavailable?: boolean; warning?: string } }) => {
         if (cancelled) return;
-        if (!res.ok || !data?.ok || !Array.isArray(data.projects)) {
+        if (!res.ok || !data?.ok || !Array.isArray(data.projects) || data.ccUnavailable) {
           setCcProjects([]);
-          setCcError(typeof data?.error === 'string' ? data.error : 'Failed to load projects');
+          setCcError(
+            typeof data?.warning === 'string'
+              ? data.warning
+              : typeof data?.message === 'string'
+                ? data.message
+                : typeof data?.error === 'string'
+                  ? data.error
+                  : 'Failed to load projects'
+          );
           setMode('manual');
           return;
         }
@@ -139,7 +147,7 @@ export default function NewJobPage() {
     const usingCc = mode === 'client-connect';
 
     if (usingCc && !selectedCcProjectId) {
-      setError('Select a linked project');
+      setError('Select a client / site');
       return;
     }
     if (usingCc && !selectedProject) {
@@ -237,7 +245,7 @@ export default function NewJobPage() {
             {mode === 'client-connect' && (
               <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
                 <label htmlFor="ccProject" className="block text-sm font-medium text-gray-700 mb-1">
-                  Linked project <span className="text-red-500">*</span>
+                  Client / site <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="ccProject"
@@ -251,8 +259,7 @@ export default function NewJobPage() {
                   {!ccLoading && availableCcProjects.length === 0 && <option value="">No projects available</option>}
                   {!ccLoading && availableCcProjects.map((project) => (
                     <option key={project.project_id} value={project.project_id}>
-                      {project.project_title} — {ccClientDisplayName(project)}
-                      {project.site_address ? ` — ${project.site_address}` : ''}
+                      {ccProjectPickerLabel(project)}
                     </option>
                   ))}
                 </select>
@@ -260,8 +267,10 @@ export default function NewJobPage() {
                 {selectedProject && (
                   <div className="mt-4 space-y-3 text-sm">
                     <div>
-                      <p className="font-medium text-gray-900">{selectedProject.project_title}</p>
-                      <p className="text-gray-600">{ccClientDisplayName(selectedProject)}</p>
+                      <p className="font-medium text-gray-900">{ccClientDisplayName(selectedProject)}</p>
+                      {ccClientPhone(selectedProject) && (
+                        <p className="text-gray-600">{ccClientPhone(selectedProject)}</p>
+                      )}
                       {selectedProject.site_address && (
                         <p className="text-gray-600">{selectedProject.site_address}</p>
                       )}

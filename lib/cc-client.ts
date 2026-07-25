@@ -20,32 +20,25 @@ export type CcProjectTrade =
   | 'electrical'
   | 'other';
 
-export interface CcProjectVariation {
-  id: string;
-  variation_id: string;
-  quote_id: string | null;
-  number: number | null;
-  title: string | null;
-  status: string;
-  variation_status: string | null;
-  total_inc_gst: number | null;
-  accepted_at: string | null;
-  section_id: string | null;
-  section_name: string | null;
-  section_trade: CcProjectTrade | null;
-  team_signed_at: string | null;
-  client_signed_at: string | null;
-  href: string | null;
-}
-
 export interface CcProjectSection {
   id: string;
   name: string;
   trade: CcProjectTrade | null;
 }
 
+/**
+ * Operational Client Connect project fields used by Site Connect.
+ *
+ * `project_id` and `quote_id` are distinct identifiers — never collapse them
+ * or treat a quote UUID as a confirmed project UUID.
+ *
+ * Commercial fields (variation amounts, invoices, costs, margins) are never
+ * accepted into this model or returned to the browser.
+ */
 export interface CcProject {
+  /** Client Connect project UUID — do not substitute quote_id. */
   project_id: string;
+  /** Client Connect quote UUID when present — do not treat as project_id. */
   quote_id: string | null;
   cc_job_id: string | null;
   cc_job_number: string | null;
@@ -57,8 +50,10 @@ export interface CcProject {
   status: CcProjectStatus;
   trades: CcProjectTrade[];
   sections: CcProjectSection[];
-  variations: CcProjectVariation[];
 }
+
+/** Browser-safe alias — same operational shape; never includes commercial fields. */
+export type CcProjectOperationalSummary = CcProject;
 
 export interface CcProjectsResponseOk {
   ok: true;
@@ -73,8 +68,14 @@ export interface CcProjectsResponseError {
 export type CcProjectsResponse = CcProjectsResponseOk | CcProjectsResponseError;
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
-let cachedProjects: CcProject[] | null = null;
-let cacheTimestampMs = 0;
+
+type OrgCacheEntry = {
+  projects: CcProject[];
+  timestampMs: number;
+};
+
+/** Cache keyed by verified Site Connect organisation id only — never global. */
+const projectsCacheByOrgId = new Map<string, OrgCacheEntry>();
 
 function isUuid(value: unknown): value is string {
   return (
@@ -110,30 +111,6 @@ function isCcProjectTrade(value: unknown): value is CcProjectTrade {
   );
 }
 
-function optionalString(value: unknown, fieldName: string): string | null {
-  if (value == null) return null;
-  if (typeof value !== 'string') {
-    throw new Error(`Invalid Client Connect response: ${fieldName} must be string or null`);
-  }
-  return value;
-}
-
-function optionalUuid(value: unknown, fieldName: string): string | null {
-  if (value == null) return null;
-  if (!isUuid(value)) {
-    throw new Error(`Invalid Client Connect response: ${fieldName} must be a UUID or null`);
-  }
-  return value;
-}
-
-function optionalNumber(value: unknown, fieldName: string): number | null {
-  if (value == null) return null;
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new Error(`Invalid Client Connect response: ${fieldName} must be a number or null`);
-  }
-  return value;
-}
-
 function optionalIdentifier(value: unknown, fieldName: string): string | null {
   if (value == null) return null;
   if (typeof value === 'string') {
@@ -162,47 +139,6 @@ function normalizeTrade(value: unknown): CcProjectTrade | null {
 
 function optionalTrade(value: unknown): CcProjectTrade | null {
   return normalizeTrade(value);
-}
-
-function validateCcProjectVariations(payload: unknown): CcProjectVariation[] {
-  if (payload == null) return [];
-  if (!Array.isArray(payload)) {
-    throw new Error('Invalid Client Connect response: variations must be an array');
-  }
-
-  return payload.map((item) => {
-    if (!item || typeof item !== 'object') {
-      throw new Error('Invalid Client Connect response: variation must be an object');
-    }
-    const v = item as Record<string, unknown>;
-    if (!isUuid(v.id)) {
-      throw new Error('Invalid Client Connect response: variation id must be a UUID');
-    }
-    if (!isUuid(v.variation_id)) {
-      throw new Error('Invalid Client Connect response: variation_id must be a UUID');
-    }
-    if (typeof v.status !== 'string' || v.status.trim() === '') {
-      throw new Error('Invalid Client Connect response: variation status must be a non-empty string');
-    }
-
-    return {
-      id: v.id,
-      variation_id: v.variation_id,
-      quote_id: optionalUuid(v.quote_id, 'variation quote_id'),
-      number: optionalNumber(v.number, 'variation number'),
-      title: optionalString(v.title, 'variation title'),
-      status: v.status,
-      variation_status: optionalString(v.variation_status, 'variation_status'),
-      total_inc_gst: optionalNumber(v.total_inc_gst, 'variation total_inc_gst'),
-      accepted_at: optionalString(v.accepted_at, 'variation accepted_at'),
-      section_id: optionalUuid(v.section_id, 'variation section_id'),
-      section_name: optionalString(v.section_name, 'variation section_name'),
-      section_trade: optionalTrade(v.section_trade),
-      team_signed_at: optionalString(v.team_signed_at, 'variation team_signed_at'),
-      client_signed_at: optionalString(v.client_signed_at, 'variation client_signed_at'),
-      href: optionalString(v.href, 'variation href'),
-    };
-  });
 }
 
 function validateCcProjectSections(payload: unknown): CcProjectSection[] {
@@ -295,6 +231,8 @@ function validateCcProjectsResponse(payload: unknown): CcProjectsResponseOk {
       ? Array.from(new Set(tradesRaw.map(normalizeTrade).filter((trade): trade is CcProjectTrade => trade !== null)))
       : [];
 
+    // Intentionally ignore upstream variations / commercial money fields.
+
     projects.push({
       project_id,
       quote_id: quote_id ?? null,
@@ -310,11 +248,27 @@ function validateCcProjectsResponse(payload: unknown): CcProjectsResponseOk {
       status,
       trades,
       sections: validateCcProjectSections(p.sections),
-      variations: validateCcProjectVariations(p.variations),
     });
   }
 
   return { ok: true, projects };
+}
+
+export function toCcProjectOperationalSummary(project: CcProject): CcProjectOperationalSummary {
+  return {
+    project_id: project.project_id,
+    quote_id: project.quote_id,
+    cc_job_id: project.cc_job_id,
+    cc_job_number: project.cc_job_number,
+    client_id: project.client_id,
+    project_title: project.project_title,
+    client_name: project.client_name,
+    client_contact: project.client_contact,
+    site_address: project.site_address,
+    status: project.status,
+    trades: [...project.trades],
+    sections: project.sections.map((section) => ({ ...section })),
+  };
 }
 
 export function ccProjectJobIdentity(
@@ -340,7 +294,24 @@ export function dedupeCcProjectsByJobIdentity(projects: CcProject[]): CcProject[
   return deduped;
 }
 
-export async function fetchCcProjects(requestId?: string): Promise<CcProject[]> {
+/** Test helper — clears org-scoped process cache. */
+export function clearCcProjectsCacheForTests(): void {
+  projectsCacheByOrgId.clear();
+}
+
+/**
+ * Fetch operational Client Connect projects for a verified Site Connect organisation.
+ * Cache is scoped by organisationId and must never be shared across organisations.
+ */
+export async function fetchCcProjects(
+  organisationId: string,
+  requestId?: string
+): Promise<CcProject[]> {
+  const orgKey = organisationId.trim().toLowerCase();
+  if (!isUuid(orgKey)) {
+    throw new Error('organisationId must be a valid UUID');
+  }
+
   const baseUrl = process.env.CC_BASE_URL;
   const internalKey = process.env.CC_INTERNAL_API_KEY;
 
@@ -355,6 +326,7 @@ export async function fetchCcProjects(requestId?: string): Promise<CcProject[]> 
 
   console.log('[EOD->CC PROJECT FETCH]', {
     requestId: effectiveRequestId,
+    organisationId: orgKey,
   });
 
   let liveError: unknown = null;
@@ -391,23 +363,26 @@ export async function fetchCcProjects(requestId?: string): Promise<CcProject[]> 
     }
 
     const validated = validateCcProjectsResponse(json);
-    cachedProjects = dedupeCcProjectsByJobIdentity(validated.projects);
-    cacheTimestampMs = now;
-    return cachedProjects;
+    const projects = dedupeCcProjectsByJobIdentity(validated.projects);
+    projectsCacheByOrgId.set(orgKey, { projects, timestampMs: now });
+    return projects.map(toCcProjectOperationalSummary);
   } catch (err) {
     liveError = err;
-    const ageMs = now - cacheTimestampMs;
-    if (cachedProjects && ageMs >= 0 && ageMs <= CACHE_TTL_MS) {
-      console.warn('[CC PROJECT FETCH FALLBACK]', {
-        reason: err instanceof Error ? err.message : 'unknown',
-        cacheAgeMs: ageMs,
-        cachedCount: cachedProjects.length,
-      });
-      return cachedProjects;
+    const cached = projectsCacheByOrgId.get(orgKey);
+    if (cached) {
+      const ageMs = now - cached.timestampMs;
+      if (ageMs >= 0 && ageMs <= CACHE_TTL_MS) {
+        console.warn('[CC PROJECT FETCH FALLBACK]', {
+          reason: err instanceof Error ? err.message : 'unknown',
+          cacheAgeMs: ageMs,
+          cachedCount: cached.projects.length,
+          organisationId: orgKey,
+        });
+        return cached.projects.map(toCcProjectOperationalSummary);
+      }
     }
   }
 
-  // If we reach here, live fetch failed and no valid cache is available.
   if (liveError instanceof Error) {
     throw liveError;
   }

@@ -4,6 +4,10 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { guardStaffApi } from '@/lib/guard-staff-api';
 import { ccProjectJobIdentity, fetchCcProjects } from '@/lib/cc-client';
 import { ccClientDisplayName } from '@/lib/cc-client-display';
+import {
+  ccIntegrationUnavailableWarning,
+  isCcIntegrationOrgAllowed,
+} from '@/lib/cc-integration-access';
 import { syncCcProjectStagesForJob } from '@/lib/sync-cc-project-stages';
 
 export const runtime = 'nodejs';
@@ -218,9 +222,12 @@ export async function PATCH(
   }
 
   if (cc_project_id !== null) {
+    if (!isCcIntegrationOrgAllowed(staffAuth.org.id)) {
+      return jsonError(ccIntegrationUnavailableWarning(), 403, requestId);
+    }
     let projects;
     try {
-      projects = await fetchCcProjects(requestId);
+      projects = await fetchCcProjects(staffAuth.org.id, requestId);
     } catch (err) {
       const message =
         err instanceof Error && err.message
@@ -234,7 +241,7 @@ export async function PATCH(
         {
           ok: false,
           requestId,
-          message,
+          message: 'Project sync is unavailable.',
         },
         { status: 502 }
       );

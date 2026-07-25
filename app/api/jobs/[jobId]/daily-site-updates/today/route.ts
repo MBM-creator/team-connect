@@ -112,7 +112,7 @@ export async function GET(
     progressContext.hoursUsed != null ||
     progressContext.hoursRemaining != null;
 
-  const ccProject = await loadCcProjectForJob(validation.job, requestId);
+  const ccProject = await loadCcProjectForJob(validation.job, validation.organisationId, requestId);
   const qaEvidenceWarning = await loadQaEvidenceWarning(jobId, requestId);
 
   const { data: recentRows, error: recentError } = await supabaseAdmin

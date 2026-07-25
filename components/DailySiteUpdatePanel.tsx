@@ -80,7 +80,7 @@ const ON_TRACK_LABELS: Record<OnTrackStatus, string> = {
 };
 
 const ON_TRACK_CLASSES: Record<OnTrackStatus, string> = {
-  on_track: 'bg-[#698F00]/10 text-[#4f6f00] border-[#698F00]/20',
+  on_track: 'bg-sc-euca-tint text-sc-euca-hover border-sc-euca/20',
   at_risk: 'bg-amber-50 text-amber-800 border-amber-200',
   off_track: 'bg-red-50 text-red-800 border-red-200',
   unknown: 'bg-gray-100 text-gray-700 border-gray-200',
@@ -133,7 +133,7 @@ function YesNoToggle({
 }) {
   const base =
     'flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px]';
-  const active = 'border-[#698F00] bg-[#698F00]/10 text-[#4f6f00]';
+  const active = 'border-sc-euca bg-sc-euca-tint text-sc-euca-hover';
   const inactive = 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
 
   return (
@@ -403,13 +403,13 @@ export function DailySiteUpdatePanel({
             )}
 
             {submitSuccess && submittedToday && (
-              <p className="text-sm text-[#698F00]">{submitSuccess}</p>
+              <p className="text-sm text-sc-euca">{submitSuccess}</p>
             )}
 
             <button
               type="button"
               onClick={openForm}
-              className="block w-full rounded-lg bg-[#698F00] px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[#5a7d00] sm:w-auto"
+              className="block w-full rounded-lg bg-sc-euca px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-sc-euca-hover sm:w-auto"
             >
               {submittedToday ? 'Add another update' : 'Add daily update'}
             </button>
@@ -418,7 +418,7 @@ export function DailySiteUpdatePanel({
               <button
                 type="button"
                 onClick={() => setHistoryOpen(true)}
-                className="block py-2 text-sm font-medium text-[#698F00] hover:underline"
+                className="block py-2 text-sm font-medium text-sc-euca hover:underline"
               >
                 Show daily update history
               </button>
@@ -439,7 +439,7 @@ export function DailySiteUpdatePanel({
 
                 {activeStage ? (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="text-sm font-medium text-[#698F00]">{activeStage.name}</span>
+                    <span className="text-sm font-medium text-sc-euca">{activeStage.name}</span>
                     {activeStage.cc_section_trade && (
                       <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
                         {activeStage.cc_section_trade.replace(/_/g, ' ')}
@@ -489,7 +489,7 @@ export function DailySiteUpdatePanel({
               <button
                 type="button"
                 onClick={hideForm}
-                className="mt-4 py-2 text-sm font-medium text-[#698F00] hover:underline"
+                className="mt-4 py-2 text-sm font-medium text-sc-euca hover:underline"
               >
                 Hide form
               </button>
@@ -646,13 +646,13 @@ export function DailySiteUpdatePanel({
 
               {submitError && <p className="text-sm text-red-700">{submitError}</p>}
               {!compactTaskMode && submitSuccess && (
-                <p className="text-sm text-[#698F00]">{submitSuccess}</p>
+                <p className="text-sm text-sc-euca">{submitSuccess}</p>
               )}
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="block w-full rounded-lg bg-[#698F00] px-4 py-3 text-sm font-medium text-white hover:bg-[#5a7d00] disabled:opacity-50 sm:w-auto"
+                className="block w-full rounded-lg bg-sc-euca px-4 py-3 text-sm font-medium text-white hover:bg-sc-euca-hover disabled:opacity-50 sm:w-auto"
               >
                 {submitting ? 'Submitting…' : 'Submit daily site update'}
               </button>
@@ -681,7 +681,7 @@ export function DailySiteUpdatePanel({
             <button
               type="button"
               onClick={() => setHistoryOpen(true)}
-              className="py-2 text-sm font-medium text-[#698F00] hover:underline"
+              className="py-2 text-sm font-medium text-sc-euca hover:underline"
             >
               Show daily update history
             </button>
@@ -691,7 +691,7 @@ export function DailySiteUpdatePanel({
             <button
               type="button"
               onClick={() => setHistoryOpen(false)}
-              className="py-2 text-sm font-medium text-[#698F00] hover:underline"
+              className="py-2 text-sm font-medium text-sc-euca hover:underline"
             >
               Hide daily update history
             </button>
