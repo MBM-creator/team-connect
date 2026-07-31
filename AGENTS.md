@@ -1,15 +1,15 @@
 # Codex Project Memory
 
-Repo: MBM-creator/endofday
-Local path: /Users/Steve/daily-reports
+Repo: MBM-creator/team-connect
+Local path: /Users/Steve/team-connect
 Purpose: QA / daily reports app for Made By Mobbs.
 
 Important rule:
-- This is Site Connect, the QA/daily-report app.
+- This is Team Connect, the QA/daily-report app.
 - Do not implement QA/daily-report features in /Users/Steve/the-portal-mvp unless explicitly asked.
 
 Related app:
-- /Users/Steve/the-portal-mvp is Client Connect / portal, not Site Connect.
+- /Users/Steve/the-portal-mvp is Client Connect / portal, not Team Connect.
 
 Current product direction:
 - Notes, videos, chat/activity items, QA runs, QA sections, jobs, dates, crew, and schedule context should be linked ClickUp-style.
