@@ -302,7 +302,7 @@ export async function PATCH(
       return linkedJob.cc_project_id === cc_project_id;
     });
     if (existingJob) {
-      return jsonError('This project is already linked to another Site Connect job', 409, requestId);
+      return jsonError('This project is already linked to another Team Connect job', 409, requestId);
     }
 
     try {

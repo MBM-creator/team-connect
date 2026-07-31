@@ -27,7 +27,7 @@ export interface CcProjectSection {
 }
 
 /**
- * Operational Client Connect project fields used by Site Connect.
+ * Operational Client Connect project fields used by Team Connect.
  *
  * `project_id` and `quote_id` are distinct identifiers — never collapse them
  * or treat a quote UUID as a confirmed project UUID.
@@ -74,7 +74,7 @@ type OrgCacheEntry = {
   timestampMs: number;
 };
 
-/** Cache keyed by verified Site Connect organisation id only — never global. */
+/** Cache keyed by verified Team Connect organisation id only — never global. */
 const projectsCacheByOrgId = new Map<string, OrgCacheEntry>();
 
 function isUuid(value: unknown): value is string {
@@ -300,7 +300,7 @@ export function clearCcProjectsCacheForTests(): void {
 }
 
 /**
- * Fetch operational Client Connect projects for a verified Site Connect organisation.
+ * Fetch operational Client Connect projects for a verified Team Connect organisation.
  * Cache is scoped by organisationId and must never be shared across organisations.
  */
 export async function fetchCcProjects(

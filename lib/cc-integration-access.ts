@@ -1,12 +1,12 @@
 /**
- * Temporary Site Connect feature gate for the Client Connect project feed.
+ * Temporary Team Connect feature gate for the Client Connect project feed.
  *
  * This is NOT Client Connect tenant isolation. Both systems currently share a
  * single CC_BASE_URL / CC_INTERNAL_API_KEY credential (Made By Mobbs).
- * `CC_INTEGRATION_ORG_IDS` only lists which Site Connect organisation UUIDs may
+ * `CC_INTEGRATION_ORG_IDS` only lists which Team Connect organisation UUIDs may
  * use that shared bridge.
  *
- * A proper Site Connect organisation → Client Connect tenant mapping is required
+ * A proper Team Connect organisation → Client Connect tenant mapping is required
  * before onboarding another integrated customer.
  */
 

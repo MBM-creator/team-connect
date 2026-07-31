@@ -151,7 +151,7 @@ export default function NewJobPage() {
       return;
     }
     if (usingCc && !selectedProject) {
-      setError('That project is already linked to a Site Connect job');
+      setError('That project is already linked to a Team Connect job');
       return;
     }
     if (!usingCc && !trimmedName) {

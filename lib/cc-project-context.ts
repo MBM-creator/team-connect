@@ -26,7 +26,7 @@ export function getApplicableQaChecks(project: CcProject | null): QaCheckType[] 
 
 /**
  * Load the single linked operational CC project for a job.
- * Fail closed when the Site Connect org is not on the temporary integration allowlist.
+ * Fail closed when the Team Connect org is not on the temporary integration allowlist.
  */
 export async function loadCcProjectForJob(
   job: JobWithClientConnect,
