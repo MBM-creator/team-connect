@@ -1,6 +1,13 @@
-# Site Connect - Made By Mobbs
+# Team Connect - Made By Mobbs
 
-Site Connect is a mobile-first app for Made By Mobbs crews to submit daily site reports and QA updates on-site using their phones.
+Team Connect is the current product and infrastructure name for the Made By Mobbs field app used by crews to submit daily site reports and QA updates on-site using their phones.
+
+## Current Naming
+
+- **Product/infrastructure name:** Team Connect
+- **Visible UI:** Some screens may still say Site Connect until the rebrand is completed
+- **Repository:** `team-connect`
+- **Vercel project:** `team-connect`
 
 ## Features
 
@@ -130,15 +137,16 @@ Visit `http://localhost:3000` or go directly to `http://localhost:3000/t/madebym
    - Go to [vercel.com](https://vercel.com)
    - Click "New Project"
    - Import your repository
+   - Use `team-connect` as the Vercel project name
 
 3. Add Environment Variables in Vercel:
    - `SUPABASE_URL` - Your Supabase project URL
    - `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
    - `RESEND_API_KEY` - Your Resend API key (so notification emails are sent when a report is submitted)
-   - `RESEND_FROM_EMAIL` (optional) - e.g. `Site Connect <reports@yourdomain.com>`; must use a verified domain in Resend. If omitted, defaults to `onboarding@resend.dev`.
+   - `RESEND_FROM_EMAIL` (optional) - e.g. `Team Connect <reports@yourdomain.com>`; must use a verified domain in Resend. If omitted, defaults to `onboarding@resend.dev`.
    - `APP_URL` (optional) - Public app URL for auth emails, e.g. `https://qa.madebymobbs.com.au`. If omitted in production, defaults to `https://qa.madebymobbs.com.au`.
    - `CC_BASE_URL` / `CC_INTERNAL_API_KEY` (optional) - Client Connect internal project feed for the MBM bridge.
-   - `CC_INTEGRATION_ORG_IDS` (optional) - Comma-separated Site Connect organisation UUIDs allowed to use that bridge. **Default deny.** Temporary feature gate only — not Client Connect tenant isolation. Set to the Made By Mobbs `organisations.id` in production/staging.
+   - `CC_INTEGRATION_ORG_IDS` (optional) - Comma-separated Team Connect organisation UUIDs allowed to use that bridge. **Default deny.** Temporary feature gate only — not Client Connect tenant isolation. Set to the Made By Mobbs `organisations.id` in production/staging.
 
 4. Deploy
 
@@ -149,7 +157,7 @@ Visit `http://localhost:3000` or go directly to `http://localhost:3000/t/madebym
 ### Daily Plan pilot (Phase 2G)
 
 - Migration order, staging seed, role checks, and rollback: [`docs/PILOT_READINESS.md`](docs/PILOT_READINESS.md)
-- Release notes (scope, permissions, schema SoT, rollback): [`docs/SITE_CONNECT_PILOT_RELEASE.md`](docs/SITE_CONNECT_PILOT_RELEASE.md)
+- Release notes (scope, permissions, schema SoT, rollback): [`docs/TEAM_CONNECT_PILOT_RELEASE.md`](docs/TEAM_CONNECT_PILOT_RELEASE.md)
 - Staging seed (never production): `npm run seed-pilot-workflow` with `ALLOW_PILOT_SEED=true` and `SEED_TARGET=staging|local`
 - Pre-deploy checks: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`
 
@@ -231,7 +239,7 @@ jobs/{slugified-job-name}__{jobIdFirst8}/pre-commencement/{uuid}.{ext}
 
 ## Database Schema
 
-Daily Plan / Site Connect operational schema is defined in `supabase/migrations/` (not fully reflected in the legacy `supabase/schema.sql` stub). See [`docs/PILOT_READINESS.md`](docs/PILOT_READINESS.md) for the Daily Plan migration order.
+Daily Plan / Team Connect operational schema is defined in `supabase/migrations/` (not fully reflected in the legacy `supabase/schema.sql` stub). See [`docs/PILOT_READINESS.md`](docs/PILOT_READINESS.md) for the Daily Plan migration order.
 
 ### Key Tables (legacy bootstrap)
 

@@ -1,14 +1,14 @@
-# Site Connect Pilot Release Notes
+# Team Connect Pilot Release Notes
 
-Internal release notes for the Site Connect Phase 1 + Phase 2A–2G pilot.
+Internal release notes for the Team Connect Phase 1 + Phase 2A–2G pilot.
 
 Operational checklists, permission matrix, E2E script, and supervisor/manager scripts: **[PILOT_READINESS.md](./PILOT_READINESS.md)**.
 
 ---
 
-## What Site Connect now does
+## What Team Connect now does
 
-- **Site Connect rebrand** (Phase 1): app name, branding, and copy for the QA/daily-report product.
+- **Team Connect rebrand** (Phase 1): app name, branding, and copy for the QA/daily-report product.
 - **Daily Plan** (2A–2C): draft tomorrow’s plan, Start Day (baseline lock), outcome execution, controlled Change Plan with replacement work.
 - **Daily Report integration** (2D): day-completion draft, carry-forward recording, atomic complete with Daily Site Update.
 - **Site Operations** (2E): admin management view of plan / report state across jobs.
