@@ -5,7 +5,7 @@ Team Connect is the current product and infrastructure name for the Made By Mobb
 ## Current Naming
 
 - **Product/infrastructure name:** Team Connect
-- **Visible UI:** Some screens may still say Site Connect until the rebrand is completed
+- **Visible UI:** Team Connect
 - **Repository:** `team-connect`
 - **Vercel project:** `team-connect`
 
