@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { APP_NAME } from "@/lib/app-branding";
 
 // PWA manifest only; no service worker is registered. If a SW is added later,
 // implement "new version available" refresh (skipWaiting/claim + controllerchange).
@@ -7,9 +8,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Site Connect",
-    short_name: "Site Connect",
-    description: "Site Connect for Made By Mobbs job updates and QA checks",
+    name: APP_NAME,
+    short_name: APP_NAME,
+    description: `${APP_NAME} for Made By Mobbs job updates and QA checks`,
     start_url: "/t/madebymobbs/jobs",
     display: "standalone",
     background_color: "#0F172A",

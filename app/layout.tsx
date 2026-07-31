@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 import { SupabaseAuthHashHandler } from "@/components/SupabaseAuthHashHandler";
+import { APP_NAME } from "@/lib/app-branding";
 import "./globals.css";
 
 // Avoid static caching so clients get latest HTML/JS (reduces cached old draft-first flow).
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Site Connect - Made By Mobbs",
-  description: "Site Connect for Made By Mobbs job updates and QA checks",
+  title: `${APP_NAME} - Made By Mobbs`,
+  description: `${APP_NAME} for Made By Mobbs job updates and QA checks`,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Site Connect",
+    title: APP_NAME,
     statusBarStyle: "black-translucent",
   },
   icons: {

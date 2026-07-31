@@ -1,4 +1,4 @@
-# Site Connect — Phase 2G Pilot Readiness
+# Team Connect — Phase 2G Pilot Readiness
 
 Operational guide for a controlled Daily Plan pilot with Made By Mobbs supervisors.
 
@@ -189,7 +189,7 @@ Use supervisor (and admin for Site Ops). Realistic job preferred.
 
 ### Previous afternoon
 
-1. Open tomorrow’s job in Site Connect.
+1. Open tomorrow’s job in Team Connect.
 2. Create the Daily Plan.
 3. Set one to three outcomes.
 4. Record crew responsibilities.

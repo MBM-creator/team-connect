@@ -65,7 +65,7 @@ async function main() {
     '';
   if (!organisationId) {
     throw new Error(
-      'BACKFILL_ORG_ID or CC_INTEGRATION_ORG_IDS is required (verified Site Connect organisation UUID)'
+      'BACKFILL_ORG_ID or CC_INTEGRATION_ORG_IDS is required (verified Team Connect organisation UUID)'
     );
   }
 

@@ -275,7 +275,7 @@ export async function POST(request: NextRequest) {
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'Site Connect <onboarding@resend.dev>';
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'Team Connect <onboarding@resend.dev>';
   let emailSent = false;
   let emailError: string | null = null;
 

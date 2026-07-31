@@ -1,4 +1,4 @@
--- Site Connect Database Schema
+-- Team Connect Database Schema
 -- Run this in your Supabase SQL editor
 
 -- Organisations table
