@@ -164,3 +164,46 @@ export function jobNoteImageStoragePath(
   const seg = jobSlugOrIdSegment(jobId, jobName);
   return `jobs/${seg}/notes/${noteId}/images/${fileName}`;
 }
+
+export function planFileExtension(mimeType: string, fileName = ''): string {
+  const lowerName = fileName.toLowerCase();
+  const lowerType = mimeType.toLowerCase();
+  if (lowerType === 'application/pdf' || lowerName.endsWith('.pdf')) return 'pdf';
+  if (lowerType === 'image/png' || lowerName.endsWith('.png')) return 'png';
+  if (lowerType === 'image/webp' || lowerName.endsWith('.webp')) return 'webp';
+  return 'jpg';
+}
+
+export function newPlanStorageFileName(mimeType: string, fileName = ''): string {
+  return `${randomUUID()}.${planFileExtension(mimeType, fileName)}`;
+}
+
+/** Job plan / drawing documents — bucket `daily-reports`. */
+export function jobPlanStoragePath(
+  jobId: string,
+  jobName: string,
+  fileName: string
+): string {
+  const seg = jobSlugOrIdSegment(jobId, jobName);
+  return `jobs/${seg}/plans/${fileName}`;
+}
+
+/** Job-level media library images (not pre-commencement, not note attachments). */
+export function jobMediaImageStoragePath(
+  jobId: string,
+  jobName: string,
+  fileName: string
+): string {
+  const seg = jobSlugOrIdSegment(jobId, jobName);
+  return `jobs/${seg}/media/images/${fileName}`;
+}
+
+/** Job-level media library videos. */
+export function jobMediaVideoStoragePath(
+  jobId: string,
+  jobName: string,
+  fileName: string
+): string {
+  const seg = jobSlugOrIdSegment(jobId, jobName);
+  return `jobs/${seg}/media/videos/${fileName}`;
+}

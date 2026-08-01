@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { DailyPlanPanel } from '@/components/DailyPlanPanel';
+import { JobBriefMediaPanel } from '@/components/JobBriefMediaPanel';
 import { JobNotesEntryCard } from '@/components/JobNotesEntryCard';
 import { JobWorkspaceShell } from '@/components/JobWorkspaceShell';
 import type { CcProject } from '@/lib/cc-client';
@@ -78,13 +79,6 @@ interface PreCommencementPhoto {
   storage_path: string;
   created_at: string;
   url: string;
-}
-
-interface JobBrief {
-  id: string;
-  job_id: string;
-  content: string | null;
-  updated_at: string;
 }
 
 interface QaRun {
@@ -176,12 +170,6 @@ export default function JobDetailPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [photoIdRemoving, setPhotoIdRemoving] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [brief, setBrief] = useState<JobBrief | null>(null);
-  const [briefLoading, setBriefLoading] = useState(false);
-  const [briefError, setBriefError] = useState<string | null>(null);
-  const [isEditingBrief, setIsEditingBrief] = useState(false);
-  const [editContent, setEditContent] = useState('');
-  const [isSavingBrief, setIsSavingBrief] = useState(false);
   const [stageName, setStageName] = useState('');
   const [isSubmittingStage, setIsSubmittingStage] = useState(false);
   const [stageError, setStageError] = useState<string | null>(null);
@@ -321,35 +309,6 @@ export default function JobDetailPage() {
       })
       .catch(() => {
         if (!cancelled) setCcProjects([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [job, orgSlug]);
-
-  // Fetch job brief when job is available
-  useEffect(() => {
-    if (!job || !orgSlug) return;
-    let cancelled = false;
-    setBriefLoading(true);
-    setBriefError(null);
-    fetch(`/api/jobs/${job.id}/brief?orgSlug=${encodeURIComponent(orgSlug)}`)
-      .then((res) => res.json())
-      .then((data: { ok?: boolean; brief?: JobBrief | null; message?: string }) => {
-        if (cancelled) return;
-        if (!data?.ok) {
-          setBriefError(typeof data?.message === 'string' ? data.message : 'Failed to load job brief');
-          return;
-        }
-        setBrief(data.brief ?? null);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setBriefError(err instanceof Error ? err.message : 'Failed to load job brief');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setBriefLoading(false);
       });
     return () => {
       cancelled = true;
@@ -650,39 +609,6 @@ export default function JobDetailPage() {
     }
   }
 
-  function startEditingBrief() {
-    setEditContent(brief?.content ?? '');
-    setBriefError(null);
-    setIsEditingBrief(true);
-  }
-
-  function cancelEditingBrief() {
-    setIsEditingBrief(false);
-  }
-
-  async function saveBrief() {
-    setBriefError(null);
-    setIsSavingBrief(true);
-    try {
-      const res = await fetch(`/api/jobs/${job?.id ?? jobId}/brief?orgSlug=${encodeURIComponent(orgSlug)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: editContent }),
-      });
-      const data = await res.json();
-      if (res.ok && data?.ok && data.brief) {
-        setBrief(data.brief);
-        setIsEditingBrief(false);
-      } else {
-        setBriefError(typeof data?.message === 'string' ? data.message : 'Failed to save job brief');
-      }
-    } catch {
-      setBriefError('Failed to save job brief');
-    } finally {
-      setIsSavingBrief(false);
-    }
-  }
-
   function formatDate(iso: string): string {
     try {
       const d = new Date(iso);
@@ -777,86 +703,7 @@ export default function JobDetailPage() {
       project={linkedCcProject}
       activeStageName={activeStageName}
       isAdmin={isAdmin}
-      afterSummary={
-        <section className="mb-5" aria-labelledby="job-brief-heading">
-          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <h2 id="job-brief-heading" className="text-lg font-semibold text-sc-charcoal">
-              Job brief
-            </h2>
-            <p className="text-sm text-sc-text-secondary">Job details and notes for the team</p>
-          </div>
-          {briefLoading && (
-            <p className="text-sm text-sc-text-secondary">Loading job brief…</p>
-          )}
-          {!briefLoading && !isEditingBrief && briefError && (
-            <div
-              className="mb-3 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger"
-              role="alert"
-            >
-              {briefError}
-            </div>
-          )}
-          {!briefLoading && !isEditingBrief && (
-            <>
-              <div className="mb-3 rounded-xl border border-sc-border bg-sc-surface px-4 py-3.5 sm:px-5">
-                {brief && brief.content !== null && brief.content !== '' ? (
-                  <pre className="whitespace-pre-wrap break-words font-sans text-sm text-sc-text">
-                    {brief.content}
-                  </pre>
-                ) : (
-                  <p className="text-sm text-sc-text-secondary">No job brief yet.</p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={startEditingBrief}
-                className={`text-sm font-medium text-sc-euca hover:text-sc-euca-hover hover:underline ${FOCUS_VISIBLE}`}
-              >
-                Edit
-              </button>
-            </>
-          )}
-          {!briefLoading && isEditingBrief && (
-            <>
-              {briefError && (
-                <div
-                  className="mb-3 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger"
-                  role="alert"
-                >
-                  {briefError}
-                </div>
-              )}
-              <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                rows={8}
-                className={`w-full rounded-lg border border-sc-border bg-sc-surface px-4 py-2 text-sm text-sc-text placeholder:text-sc-text-secondary/70 ${CONTROL_FOCUS}`}
-                placeholder="Enter job brief (plain text)..."
-                disabled={isSavingBrief}
-                aria-labelledby="job-brief-heading"
-              />
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={saveBrief}
-                  disabled={isSavingBrief}
-                  className={`inline-flex h-11 items-center justify-center rounded-lg bg-sc-euca px-4 text-sm font-medium text-white hover:bg-sc-euca-hover disabled:cursor-not-allowed disabled:opacity-50 ${TRANSITION} ${FOCUS_VISIBLE}`}
-                >
-                  {isSavingBrief ? 'Saving…' : 'Save'}
-                </button>
-                <button
-                  type="button"
-                  onClick={cancelEditingBrief}
-                  disabled={isSavingBrief}
-                  className={`inline-flex h-11 items-center justify-center rounded-lg border border-sc-border bg-sc-surface px-4 text-sm font-medium text-sc-text hover:bg-sc-surface-2 disabled:opacity-50 ${TRANSITION} ${FOCUS_VISIBLE}`}
-                >
-                  Cancel
-                </button>
-              </div>
-            </>
-          )}
-        </section>
-      }
+      afterSummary={<JobBriefMediaPanel orgSlug={orgSlug} jobId={job.id} />}
     >
             <div className="mb-6">
               <DailyPlanPanel
