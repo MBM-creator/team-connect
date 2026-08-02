@@ -25,6 +25,11 @@ export type StageSortable = {
   sort_order: number;
 };
 
+export type ChecklistTemplateOption = {
+  id: string;
+  name: string;
+};
+
 export type OverviewQaRun = {
   id: string;
   stage_id?: string | null;
@@ -35,6 +40,27 @@ export type OverviewQaRun = {
 export function validateNewStageName(name: string): string | null {
   if (!name.trim()) return 'Stage name is required';
   return null;
+}
+
+export function filterChecklistTemplates<T extends ChecklistTemplateOption>(
+  templates: readonly T[],
+  query: string
+): T[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return [...templates];
+  return templates.filter((template) =>
+    template.name.toLocaleLowerCase().includes(normalizedQuery)
+  );
+}
+
+export function selectedChecklistIdAfterNameEdit(
+  name: string,
+  selectedChecklistId: string | null,
+  templates: readonly ChecklistTemplateOption[]
+): string | null {
+  if (!selectedChecklistId) return null;
+  const selected = templates.find((template) => template.id === selectedChecklistId);
+  return selected?.name === name ? selectedChecklistId : null;
 }
 
 export function selectFilesForPhotoUpload(

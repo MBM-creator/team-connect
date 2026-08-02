@@ -146,7 +146,7 @@ All nullable; no FK into Client Connect:
 - `cc_section_name_snapshot`
 - `cc_section_trade`
 
-Unique on `(job_id, cc_section_id)` when linked (`20260520181000_stage_client_connect_section_link.sql`). Synced by `syncCcProjectStagesForJob` in `lib/sync-cc-project-stages.ts`.
+Unique on `(job_id, cc_section_id)` when linked (`20260520181000_stage_client_connect_section_link.sql`). These legacy link fields remain for existing records, but Client Connect sections are no longer imported as Team Connect stages.
 
 ### 3.5 Identity resolution order
 
@@ -950,7 +950,6 @@ Inbound (future, SC → CC, only when user action requires):
 - `lib/cc-client.ts`
 - `lib/cc-client-display.ts`
 - `lib/cc-project-context.ts`
-- `lib/sync-cc-project-stages.ts`
 - `app/api/cc/projects/route.ts`
 - `app/api/jobs/route.ts`
 - `app/api/jobs/[jobId]/cc-mapping/route.ts`

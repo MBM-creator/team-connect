@@ -10,7 +10,6 @@ function haystack(stage: StageHint): string {
   return [
     stage.name,
     stage.cc_section_trade ?? '',
-    stage.templateName ?? '',
   ]
     .join(' ')
     .toLowerCase()
@@ -20,10 +19,17 @@ function haystack(stage: StageHint): string {
 export function inferQaTypesFromStage(stage: StageHint | null): QaType[] {
   if (!stage) return [];
   const text = haystack(stage);
+  const templateName = (stage.templateName ?? '').toLowerCase();
   const types: QaType[] = [];
-  if (text.includes('paving')) types.push('paving');
-  if (text.includes('irrigation')) types.push('irrigation');
-  if (text.includes('fencing')) types.push('fencing');
+  if (text.includes('paving') || templateName.includes('paving')) types.push('paving');
+  if (text.includes('irrigation') || templateName.includes('irrigation')) types.push('irrigation');
+  if (
+    text.includes('fencing') ||
+    templateName.includes('fencing') ||
+    templateName.includes('fence')
+  ) {
+    types.push('fencing');
+  }
   return types;
 }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { guardStaffApi } from '@/lib/guard-staff-api';
 import { randomUUID } from 'crypto';
 
 export const runtime = 'nodejs';
@@ -99,7 +100,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const requestId = request.headers.get('x-vercel-id') ?? randomUUID().slice(0, 8);
 
-  let body: { jobId?: string; name?: string; sortOrder?: number };
+  let body: {
+    orgSlug?: string;
+    jobId?: string;
+    name?: string;
+    sortOrder?: number;
+    checklistTemplateId?: string | null;
+  };
   try {
     const raw = await request.json();
     body = typeof raw === 'object' && raw !== null ? raw : {};
@@ -108,17 +115,34 @@ export async function POST(request: NextRequest) {
     return serverError(requestId, 'BODY_PARSE', 'Invalid JSON body');
   }
 
+  const orgSlug = String(body.orgSlug ?? '').trim();
   const jobId = String(body.jobId ?? '').trim();
   const name = String(body.name ?? '').trim();
   const sortOrderIn = body.sortOrder;
+  const checklistTemplateIdRaw = body.checklistTemplateId;
+  const checklistTemplateId =
+    checklistTemplateIdRaw === null || checklistTemplateIdRaw === undefined
+      ? null
+      : String(checklistTemplateIdRaw).trim() || null;
 
+  if (!orgSlug) return jsonError('orgSlug is required', 400, requestId);
   if (!jobId || !isValidUuid(jobId)) return jsonError('jobId is required and must be a valid UUID', 400, requestId);
   if (!name) return jsonError('name is required', 400, requestId);
+  if (checklistTemplateId !== null && !isValidUuid(checklistTemplateId)) {
+    return jsonError('checklistTemplateId must be a valid UUID or null', 400, requestId);
+  }
+
+  const staffAuth = await guardStaffApi(orgSlug);
+  if (staffAuth instanceof NextResponse) {
+    staffAuth.headers.set('x-request-id', requestId);
+    return staffAuth;
+  }
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id')
+    .select('id, organisation_id')
     .eq('id', jobId)
+    .eq('organisation_id', staffAuth.org.id)
     .single();
 
   if (jobError || !job) {
@@ -136,6 +160,29 @@ export async function POST(request: NextRequest) {
     );
     res.headers.set('x-request-id', requestId);
     return res;
+  }
+
+  if (checklistTemplateId !== null) {
+    const { data: template, error: templateError } = await supabaseAdmin
+      .from('checklist_templates')
+      .select('id')
+      .eq('id', checklistTemplateId)
+      .eq('organisation_id', staffAuth.org.id)
+      .single();
+
+    if (templateError || !template) {
+      const supabaseErr = normalizeSupabaseError(templateError ?? null);
+      console.error('[api/stages] POST template lookup failed:', {
+        requestId,
+        checklistTemplateId,
+        supabaseError: supabaseErr,
+      });
+      return jsonError(
+        'Template not found or does not belong to this organisation',
+        404,
+        requestId
+      );
+    }
   }
 
   let sortOrder: number;
@@ -159,6 +206,7 @@ export async function POST(request: NextRequest) {
       job_id: jobId,
       name,
       sort_order: sortOrder,
+      checklist_template_id: checklistTemplateId,
     })
     .select('id, job_id, name, sort_order, created_at, checklist_template_id, cc_project_id, cc_section_id, cc_section_name_snapshot, cc_section_trade')
     .single();

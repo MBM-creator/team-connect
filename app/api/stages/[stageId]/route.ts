@@ -139,7 +139,7 @@ export async function PATCH(
   const validation = await validateStageForOrg(stageId, orgSlug, requestId);
   if (validation instanceof NextResponse) return validation;
 
-  let body: { checklistTemplateId?: string | null; sortOrder?: number };
+  let body: { checklistTemplateId?: string | null; sortOrder?: number; name?: string };
   try {
     const raw = await request.json();
     body = typeof raw === 'object' && raw !== null ? raw : {};
@@ -151,8 +151,9 @@ export async function PATCH(
 
   const hasChecklistTemplateId = 'checklistTemplateId' in body;
   const hasSortOrder = 'sortOrder' in body;
-  if (!hasChecklistTemplateId && !hasSortOrder) {
-    return jsonError('checklistTemplateId or sortOrder is required', 400, requestId);
+  const hasName = 'name' in body;
+  if (!hasChecklistTemplateId && !hasSortOrder && !hasName) {
+    return jsonError('checklistTemplateId, sortOrder or name is required', 400, requestId);
   }
 
   const checklistTemplateIdRaw = body.checklistTemplateId;
@@ -195,7 +196,11 @@ export async function PATCH(
     }
   }
 
-  const updates: { checklist_template_id?: string | null; sort_order?: number } = {};
+  const updates: {
+    checklist_template_id?: string | null;
+    sort_order?: number;
+    name?: string;
+  } = {};
   if (hasChecklistTemplateId) {
     updates.checklist_template_id = checklistTemplateId;
   }
@@ -204,6 +209,13 @@ export async function PATCH(
       return jsonError('sortOrder must be a non-negative integer', 400, requestId);
     }
     updates.sort_order = body.sortOrder;
+  }
+  if (hasName) {
+    const name = String(body.name ?? '').trim();
+    if (!name) {
+      return jsonError('name is required', 400, requestId);
+    }
+    updates.name = name;
   }
 
   const { error: updateError } = await supabaseAdmin
@@ -230,6 +242,43 @@ export async function PATCH(
   }
 
   const res = NextResponse.json({ ok: true, stage });
+  res.headers.set('x-request-id', requestId);
+  return res;
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ stageId: string }> }
+) {
+  const requestId = request.headers.get('x-vercel-id') ?? randomUUID().slice(0, 8);
+  const { stageId } = await params;
+  const orgSlug = request.nextUrl.searchParams.get('orgSlug')?.trim() ?? '';
+
+  const staffAuth = await guardStaffApi(orgSlug);
+  if (staffAuth instanceof NextResponse) {
+    staffAuth.headers.set('x-request-id', requestId);
+    return staffAuth;
+  }
+
+  const validation = await validateStageForOrg(stageId, orgSlug, requestId);
+  if (validation instanceof NextResponse) return validation;
+
+  const { error: deleteError } = await supabaseAdmin
+    .from('stages')
+    .delete()
+    .eq('id', stageId);
+
+  if (deleteError) {
+    const supabaseErr = normalizeSupabaseError(deleteError);
+    console.error('[api/stages/[stageId]] DELETE failed:', {
+      requestId,
+      stageId,
+      supabaseError: supabaseErr,
+    });
+    return serverError(requestId, supabaseErr.code ?? 'STAGE_DELETE', 'Failed to delete stage');
+  }
+
+  const res = NextResponse.json({ ok: true });
   res.headers.set('x-request-id', requestId);
   return res;
 }
