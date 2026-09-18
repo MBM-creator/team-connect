@@ -4,10 +4,12 @@ import {
   OVERVIEW_QA_TEMPLATE_HELP,
   OVERVIEW_WRAP_SAFE_CLASSES,
   canMoveStage,
+  filterChecklistTemplates,
   overviewStageChipClass,
   photoUploadCountLabel,
   reorderStagesById,
   resolveOverviewStageState,
+  selectedChecklistIdAfterNameEdit,
   selectFilesForPhotoUpload,
   shouldShowSupervisorSignOff,
   stageHasExplicitFinishedQa,
@@ -53,6 +55,26 @@ describe('stage name validation', () => {
     expect(validateNewStageName('')).toBe('Stage name is required');
     expect(validateNewStageName('   ')).toBe('Stage name is required');
     expect(validateNewStageName('Turf')).toBeNull();
+  });
+
+  it('filters checklist suggestions without requiring an exact match', () => {
+    const templates = [
+      { id: 'paving', name: 'Paving' },
+      { id: 'fence', name: 'Paling Fence' },
+      { id: 'irrigation', name: 'Irrigation' },
+    ];
+
+    expect(filterChecklistTemplates(templates, 'FENCE')).toEqual([templates[1]]);
+    expect(filterChecklistTemplates(templates, '  ')).toEqual(templates);
+    expect(filterChecklistTemplates(templates, 'brick')).toEqual([]);
+  });
+
+  it('clears an assigned checklist when its selected name is edited', () => {
+    const templates = [{ id: 'fence', name: 'Paling Fence' }];
+
+    expect(selectedChecklistIdAfterNameEdit('Paling Fence', 'fence', templates)).toBe('fence');
+    expect(selectedChecklistIdAfterNameEdit('Brick Fence', 'fence', templates)).toBeNull();
+    expect(selectedChecklistIdAfterNameEdit('Paling Fence', null, templates)).toBeNull();
   });
 });
 

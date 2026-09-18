@@ -8,7 +8,6 @@ import {
   ccIntegrationUnavailableWarning,
   isCcIntegrationOrgAllowed,
 } from '@/lib/cc-integration-access';
-import { syncCcProjectStagesForJob } from '@/lib/sync-cc-project-stages';
 
 export const runtime = 'nodejs';
 
@@ -305,26 +304,6 @@ export async function PATCH(
       return jsonError('This project is already linked to another Team Connect job', 409, requestId);
     }
 
-    try {
-      await syncCcProjectStagesForJob(jobId, match, requestId);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to sync Client Connect sections to stages';
-      console.error('[CC STAGE SYNC FAILED]', {
-        requestId,
-        projectId: cc_project_id,
-        error: message,
-      });
-      const res = NextResponse.json(
-        {
-          ok: false,
-          requestId,
-          message,
-        },
-        { status: 502 }
-      );
-      res.headers.set('x-request-id', requestId);
-      return res;
-    }
   } else {
     cc_quote_id = null;
     cc_job_id = null;

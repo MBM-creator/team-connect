@@ -290,7 +290,7 @@ export default function NewJobPage() {
                       )}
                     </div>
                     <p className="text-gray-600">
-                      {selectedProject.sections.length} section{selectedProject.sections.length === 1 ? '' : 's'} will be synced into this job.
+                      Project stages and QA checklists can be added after the job is created.
                     </p>
                   </div>
                 )}

@@ -75,7 +75,13 @@ function isFencingStage(stage: Stage | null, ccProject: CcProject | null): boole
   const name = (stage?.name ?? '').toLowerCase();
   const template = templateName(stage).toLowerCase();
   const trades = new Set(ccProject?.trades ?? []);
-  return trade.includes('fencing') || name.includes('fencing') || template.includes('fencing') || trades.has('fencing');
+  return (
+    trade.includes('fencing') ||
+    name.includes('fencing') ||
+    template.includes('fencing') ||
+    template.includes('fence') ||
+    trades.has('fencing')
+  );
 }
 
 function runHref(orgSlug: string, jobId: string, run: QaRun, activeStage: Stage | null, ccProject: CcProject | null): string {

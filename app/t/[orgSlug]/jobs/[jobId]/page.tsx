@@ -14,10 +14,12 @@ import {
   MAX_PRE_COMMENCEMENT_PHOTOS,
   OVERVIEW_QA_TEMPLATE_HELP,
   canMoveStage,
+  filterChecklistTemplates,
   overviewStageChipClass,
   photoUploadCountLabel,
   reorderStagesById,
   resolveOverviewStageState,
+  selectedChecklistIdAfterNameEdit,
   selectFilesForPhotoUpload,
   shouldShowSupervisorSignOff,
   stageHasExplicitFinishedQa,
@@ -108,7 +110,7 @@ function getTemplateMismatchWarning(stage: Stage): string | null {
   const isFencingContext = stageName.includes('fence') || stageName.includes('fencing') || ccTrade.includes('fencing');
   const isPavingTemplate = templateName.includes('paving');
   const isIrrigationTemplate = templateName.includes('irrigation');
-  const isFencingTemplate = templateName.includes('fencing');
+  const isFencingTemplate = templateName.includes('fencing') || templateName.includes('fence');
 
   if ((isIrrigationContext || isFencingContext) && isPavingTemplate) {
     return `Stage/template mismatch: this stage is labelled "${stage.name}" but is using the Paving QA template.`;
@@ -171,10 +173,17 @@ export default function JobDetailPage() {
   const [photoIdRemoving, setPhotoIdRemoving] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [stageName, setStageName] = useState('');
+  const [selectedChecklistTemplateId, setSelectedChecklistTemplateId] = useState<string | null>(null);
+  const [isStageTemplateMenuOpen, setIsStageTemplateMenuOpen] = useState(false);
+  const [activeStageTemplateIndex, setActiveStageTemplateIndex] = useState(-1);
   const [isSubmittingStage, setIsSubmittingStage] = useState(false);
   const [stageError, setStageError] = useState<string | null>(null);
   const [stageIdSettingActive, setStageIdSettingActive] = useState<string | null>(null);
   const [stageIdMoving, setStageIdMoving] = useState<string | null>(null);
+  const [stageIdRenaming, setStageIdRenaming] = useState<string | null>(null);
+  const [stageRename, setStageRename] = useState('');
+  const [stageIdSavingName, setStageIdSavingName] = useState<string | null>(null);
+  const [stageIdDeleting, setStageIdDeleting] = useState<string | null>(null);
   const [activeStageError, setActiveStageError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
@@ -187,6 +196,7 @@ export default function JobDetailPage() {
 
   const [ccProjects, setCcProjects] = useState<CcProject[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const filteredStageTemplates = filterChecklistTemplates(templates, stageName);
 
   useEffect(() => {
     if (!orgSlug) return;
@@ -514,6 +524,77 @@ export default function JobDetailPage() {
     }
   }
 
+  function beginRenameStage(stage: Stage) {
+    setStageIdRenaming(stage.id);
+    setStageRename(stage.name);
+    setStageError(null);
+  }
+
+  async function saveStageName(stageId: string) {
+    const nameError = validateNewStageName(stageRename);
+    if (nameError) {
+      setStageError(nameError);
+      return;
+    }
+
+    setStageError(null);
+    setStageIdSavingName(stageId);
+    try {
+      const res = await fetch(
+        `/api/stages/${stageId}?orgSlug=${encodeURIComponent(orgSlug)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: stageRename.trim() }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || !data?.ok || !data?.stage) {
+        throw new Error(typeof data?.message === 'string' ? data.message : 'Failed to rename stage');
+      }
+      setStages((current) =>
+        current.map((stage) => (stage.id === stageId ? { ...stage, ...data.stage } : stage))
+      );
+      setStageIdRenaming(null);
+      setStageRename('');
+    } catch (err) {
+      setStageError(err instanceof Error ? err.message : 'Failed to rename stage');
+    } finally {
+      setStageIdSavingName(null);
+    }
+  }
+
+  async function deleteStage(stage: Stage) {
+    if (!window.confirm(`Delete "${stage.name}"? This cannot be undone.`)) return;
+
+    setStageError(null);
+    setStageIdDeleting(stage.id);
+    try {
+      const res = await fetch(
+        `/api/stages/${stage.id}?orgSlug=${encodeURIComponent(orgSlug)}`,
+        { method: 'DELETE' }
+      );
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        throw new Error(typeof data?.message === 'string' ? data.message : 'Failed to delete stage');
+      }
+      setStages((current) => current.filter((item) => item.id !== stage.id));
+      setJob((current) =>
+        current?.active_stage_id === stage.id
+          ? { ...current, active_stage_id: null }
+          : current
+      );
+      if (stageIdRenaming === stage.id) {
+        setStageIdRenaming(null);
+        setStageRename('');
+      }
+    } catch (err) {
+      setStageError(err instanceof Error ? err.message : 'Failed to delete stage');
+    } finally {
+      setStageIdDeleting(null);
+    }
+  }
+
   async function handleAddStage(e: React.FormEvent) {
     e.preventDefault();
     const nameError = validateNewStageName(stageName);
@@ -528,12 +609,20 @@ export default function JobDetailPage() {
       const res = await fetch('/api/stages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId, name: trimmed }),
+        body: JSON.stringify({
+          orgSlug,
+          jobId,
+          name: trimmed,
+          checklistTemplateId: selectedChecklistTemplateId,
+        }),
       });
       const data = await res.json();
       if (res.ok && data?.ok) {
         await refetchStages();
         setStageName('');
+        setSelectedChecklistTemplateId(null);
+        setIsStageTemplateMenuOpen(false);
+        setActiveStageTemplateIndex(-1);
       } else {
         setStageError(typeof data?.message === 'string' ? data.message : 'Failed to add stage');
       }
@@ -541,6 +630,49 @@ export default function JobDetailPage() {
       setStageError('Failed to add stage');
     } finally {
       setIsSubmittingStage(false);
+    }
+  }
+
+  function selectStageTemplate(template: ChecklistTemplate) {
+    setStageName(template.name);
+    setSelectedChecklistTemplateId(template.id);
+    setIsStageTemplateMenuOpen(false);
+    setActiveStageTemplateIndex(-1);
+    setStageError(null);
+  }
+
+  function handleStageNameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Escape') {
+      setIsStageTemplateMenuOpen(false);
+      setActiveStageTemplateIndex(-1);
+      return;
+    }
+    if (e.key === 'ArrowDown' && filteredStageTemplates.length > 0) {
+      e.preventDefault();
+      setIsStageTemplateMenuOpen(true);
+      setActiveStageTemplateIndex((current) =>
+        current < filteredStageTemplates.length - 1 ? current + 1 : 0
+      );
+      return;
+    }
+    if (e.key === 'ArrowUp' && filteredStageTemplates.length > 0) {
+      e.preventDefault();
+      setIsStageTemplateMenuOpen(true);
+      setActiveStageTemplateIndex((current) =>
+        current > 0 ? current - 1 : filteredStageTemplates.length - 1
+      );
+      return;
+    }
+    if (
+      e.key === 'Enter' &&
+      isStageTemplateMenuOpen &&
+      activeStageTemplateIndex >= 0
+    ) {
+      const template = filteredStageTemplates[activeStageTemplateIndex];
+      if (template) {
+        e.preventDefault();
+        selectStageTemplate(template);
+      }
     }
   }
 
@@ -821,7 +953,7 @@ export default function JobDetailPage() {
             <section className="mt-8" aria-labelledby="stages-heading">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                 <h2 id="stages-heading" className="text-lg font-semibold text-sc-charcoal">
-                  Stages
+                  Key Project Stages
                 </h2>
                 <p className="text-sm text-sc-text-secondary">
                   {stages.length === 1 ? '1 stage' : `${stages.length} stages`}
@@ -841,18 +973,79 @@ export default function JobDetailPage() {
                 onSubmit={handleAddStage}
                 className="mb-4 flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center"
               >
-                <label className="sr-only" htmlFor="new-stage-name">
-                  Stage name
-                </label>
-                <input
-                  id="new-stage-name"
-                  type="text"
-                  value={stageName}
-                  onChange={(e) => setStageName(e.target.value)}
-                  placeholder="Stage name"
-                  className={`h-11 min-w-0 w-full rounded-lg border border-sc-border bg-sc-surface px-3 text-sm text-sc-text placeholder:text-sc-text-secondary/70 sm:max-w-sm ${CONTROL_FOCUS}`}
-                  disabled={isSubmittingStage}
-                />
+                <div className="relative min-w-0 w-full sm:max-w-sm">
+                  <label className="sr-only" htmlFor="new-stage-name">
+                    Stage name or QA checklist
+                  </label>
+                  <input
+                    id="new-stage-name"
+                    type="text"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={isStageTemplateMenuOpen}
+                    aria-controls="new-stage-template-options"
+                    aria-activedescendant={
+                      activeStageTemplateIndex >= 0 &&
+                      filteredStageTemplates[activeStageTemplateIndex]
+                        ? `new-stage-template-${filteredStageTemplates[activeStageTemplateIndex].id}`
+                        : undefined
+                    }
+                    value={stageName}
+                    onChange={(e) => {
+                      const nextName = e.target.value;
+                      setStageName(nextName);
+                      setSelectedChecklistTemplateId((current) =>
+                        selectedChecklistIdAfterNameEdit(nextName, current, templates)
+                      );
+                      setIsStageTemplateMenuOpen(true);
+                      setActiveStageTemplateIndex(-1);
+                      setStageError(null);
+                    }}
+                    onFocus={() => setIsStageTemplateMenuOpen(true)}
+                    onBlur={() => {
+                      setIsStageTemplateMenuOpen(false);
+                      setActiveStageTemplateIndex(-1);
+                    }}
+                    onKeyDown={handleStageNameKeyDown}
+                    placeholder="Stage name or QA checklist"
+                    className={`h-11 min-w-0 w-full rounded-lg border border-sc-border bg-sc-surface px-3 text-sm text-sc-text placeholder:text-sc-text-secondary/70 ${CONTROL_FOCUS}`}
+                    disabled={isSubmittingStage}
+                  />
+                  {isStageTemplateMenuOpen && !isSubmittingStage && (
+                    <ul
+                      id="new-stage-template-options"
+                      role="listbox"
+                      aria-label="QA checklists"
+                      className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-sc-border bg-sc-surface py-1 shadow-lg"
+                    >
+                      {filteredStageTemplates.length > 0 ? (
+                        filteredStageTemplates.map((template, index) => (
+                          <li
+                            id={`new-stage-template-${template.id}`}
+                            key={template.id}
+                            role="option"
+                            aria-selected={selectedChecklistTemplateId === template.id}
+                          >
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => selectStageTemplate(template)}
+                              className={`w-full px-3 py-2 text-left text-sm text-sc-text hover:bg-sc-surface-2 ${
+                                activeStageTemplateIndex === index ? 'bg-sc-surface-2' : ''
+                              }`}
+                            >
+                              {template.name}
+                            </button>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="px-3 py-2 text-sm text-sc-text-secondary">
+                          No matching QA checklist. Your text will be used as the stage name.
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
                 <button
                   type="submit"
                   disabled={isSubmittingStage}
@@ -893,6 +1086,9 @@ export default function JobDetailPage() {
                     const isActive = job?.active_stage_id === stage.id;
                     const isSetting = stageIdSettingActive === stage.id;
                     const isMoving = stageIdMoving === stage.id;
+                    const isRenaming = stageIdRenaming === stage.id;
+                    const isSavingName = stageIdSavingName === stage.id;
+                    const isDeleting = stageIdDeleting === stage.id;
                     const isUpdatingTemplate = stageIdUpdatingTemplate === stage.id;
                     const selectorDisabled =
                       templatesLoading || !!templatesError || isUpdatingTemplate;
@@ -900,7 +1096,8 @@ export default function JobDetailPage() {
                     const templateNameLower = (stage.checklist_templates?.name ?? '').toLowerCase();
                     const isPavingTemplate = templateNameLower.includes('paving');
                     const isIrrigationTemplate = templateNameLower.includes('irrigation');
-                    const isFencingTemplate = templateNameLower.includes('fencing');
+                    const isFencingTemplate =
+                      templateNameLower.includes('fencing') || templateNameLower.includes('fence');
                     const hasQaTemplate =
                       isPavingTemplate || isIrrigationTemplate || isFencingTemplate;
                     const stageQaType = isPavingTemplate
@@ -944,14 +1141,66 @@ export default function JobDetailPage() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex-1 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="min-w-0 break-words text-base font-semibold text-sc-charcoal sm:text-lg">
-                                {stage.name}
-                              </h3>
-                              <span
-                                className={`inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium ${overviewStageChipClass(stageState.chipTone)}`}
-                              >
-                                {stageState.label}
-                              </span>
+                              {isRenaming ? (
+                                <form
+                                  className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    void saveStageName(stage.id);
+                                  }}
+                                >
+                                  <label className="sr-only" htmlFor={`stage-name-${stage.id}`}>
+                                    Stage name
+                                  </label>
+                                  <input
+                                    id={`stage-name-${stage.id}`}
+                                    type="text"
+                                    value={stageRename}
+                                    onChange={(e) => setStageRename(e.target.value)}
+                                    autoFocus
+                                    disabled={isSavingName}
+                                    className={`h-10 min-w-0 flex-1 rounded-lg border border-sc-border bg-sc-surface px-3 text-sm text-sc-text sm:max-w-sm ${CONTROL_FOCUS}`}
+                                  />
+                                  <button
+                                    type="submit"
+                                    disabled={isSavingName}
+                                    className={`inline-flex h-10 items-center rounded-lg bg-sc-euca px-3 text-sm font-medium text-white hover:bg-sc-euca-hover disabled:opacity-50 ${FOCUS_VISIBLE}`}
+                                  >
+                                    {isSavingName ? 'Saving…' : 'Save'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setStageIdRenaming(null);
+                                      setStageRename('');
+                                      setStageError(null);
+                                    }}
+                                    disabled={isSavingName}
+                                    className={`inline-flex h-10 items-center rounded-lg border border-sc-border px-3 text-sm font-medium text-sc-text hover:bg-sc-surface-2 disabled:opacity-50 ${FOCUS_VISIBLE}`}
+                                  >
+                                    Cancel
+                                  </button>
+                                </form>
+                              ) : (
+                                <>
+                                  <h3 className="min-w-0 break-words text-base font-semibold text-sc-charcoal sm:text-lg">
+                                    {stage.name}
+                                  </h3>
+                                  <span
+                                    className={`inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium ${overviewStageChipClass(stageState.chipTone)}`}
+                                  >
+                                    {stageState.label}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => beginRenameStage(stage)}
+                                    disabled={!!stageIdSavingName || !!stageIdDeleting}
+                                    className={`text-xs font-medium text-sc-text-secondary underline decoration-sc-border underline-offset-2 hover:text-sc-text disabled:opacity-50 ${FOCUS_VISIBLE}`}
+                                  >
+                                    Rename
+                                  </button>
+                                </>
+                              )}
                             </div>
                             {stageDate && (
                               <p className="text-sm text-sc-text-secondary">{stageDate}</p>
@@ -987,6 +1236,15 @@ export default function JobDetailPage() {
                               aria-label={stageMoveAriaLabel(stage.name, 'down')}
                             >
                               Down
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteStage(stage)}
+                              disabled={!!stageIdDeleting || !!stageIdSavingName}
+                              className={`inline-flex h-9 items-center justify-center rounded-lg border border-sc-danger-border bg-sc-surface px-2.5 text-xs font-medium text-sc-danger hover:bg-sc-danger-tint disabled:cursor-not-allowed disabled:opacity-40 ${TRANSITION} ${FOCUS_VISIBLE}`}
+                              aria-label={`Delete ${stage.name} stage`}
+                            >
+                              {isDeleting ? 'Deleting…' : 'Delete'}
                             </button>
                             {isMoving && (
                               <span className="text-xs text-sc-text-secondary" aria-live="polite">
