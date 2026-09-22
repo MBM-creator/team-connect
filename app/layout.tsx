@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: `${APP_NAME} - Made By Mobbs`,
-  description: `${APP_NAME} for Made By Mobbs job updates and QA checks`,
+  description: `${APP_NAME} for Made By Mobbs job planning and updates`,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

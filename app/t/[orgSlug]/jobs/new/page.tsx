@@ -286,7 +286,7 @@ export default function NewJobPage() {
                           </span>
                         ))
                       ) : (
-                        <span className="text-gray-500">No QA trades set</span>
+                        <span className="text-gray-500">No trades set</span>
                       )}
                     </div>
                     <p className="text-gray-600">

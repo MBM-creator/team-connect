@@ -186,8 +186,8 @@ export async function PATCH(
 
     if (updateError || !job) {
       const supabaseErr = normalizeSupabaseError(updateError ?? null);
-      console.error('[api/jobs/[jobId]] Hide from QA list failed:', { requestId, supabaseError: supabaseErr });
-      return serverError(requestId, supabaseErr.code ?? 'JOB_HIDE', 'Failed to hide job from QA list');
+      console.error('[api/jobs/[jobId]] Archive job failed:', { requestId, supabaseError: supabaseErr });
+      return serverError(requestId, supabaseErr.code ?? 'JOB_HIDE', 'Failed to archive job');
     }
 
     const res = NextResponse.json({ ok: true, job });

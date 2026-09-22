@@ -1,6 +1,40 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { loadStaffProfileForOrg } from '@/lib/staff-auth';
+import { QA_ENABLED } from '@/lib/feature-flags';
+
+function disabledQaResponse(request: NextRequest): NextResponse | null {
+  if (QA_ENABLED) return null;
+
+  const { pathname } = request.nextUrl;
+  const qaPageMatch = pathname.match(/^\/t\/([^/]+)\/jobs\/([^/]+)\/qa(?:\/|$)/);
+  if (qaPageMatch) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = `/t/${qaPageMatch[1]}/jobs/${qaPageMatch[2]}`;
+    destination.search = '';
+    return NextResponse.redirect(destination);
+  }
+
+  if (/^\/t\/[^/]+\/overview\/?$/.test(pathname)) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = pathname.replace(/\/overview\/?$/, '/jobs');
+    destination.search = '';
+    return NextResponse.redirect(destination);
+  }
+
+  if (/^\/t\/[^/]+\/checklist-templates(?:\/|$)/.test(pathname)) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = pathname.replace(/\/checklist-templates(?:\/.*)?$/, '/jobs');
+    destination.search = '';
+    return NextResponse.redirect(destination);
+  }
+
+  if (/^\/api\/jobs\/[^/]+\/qa(?:\/|$)/.test(pathname) || pathname === '/api/jobs/overview' || pathname === '/api/admin/dashboard' || pathname.startsWith('/api/checklist-templates')) {
+    return NextResponse.json({ ok: false, message: 'Not found' }, { status: 404 });
+  }
+
+  return null;
+}
 
 function isPublicPath(pathname: string): boolean {
   if (pathname === '/' || pathname === '/login' || pathname === '/forgot-password') return true;
@@ -34,6 +68,9 @@ function requiresAdminRole(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const disabledResponse = disabledQaResponse(request);
+  if (disabledResponse) return disabledResponse;
 
   if (isPublicPath(pathname)) {
     const response = NextResponse.next();

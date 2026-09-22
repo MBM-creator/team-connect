@@ -10,7 +10,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: APP_NAME,
     short_name: APP_NAME,
-    description: `${APP_NAME} for Made By Mobbs job updates and QA checks`,
+    description: `${APP_NAME} for Made By Mobbs job planning and updates`,
     start_url: "/t/madebymobbs/jobs",
     display: "standalone",
     background_color: "#0F172A",

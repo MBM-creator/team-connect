@@ -10,6 +10,7 @@ import { JobWorkspaceShell } from '@/components/JobWorkspaceShell';
 import type { CcProject } from '@/lib/cc-client';
 import { clientFacingDetails } from '@/lib/cc-client-display';
 import { compressImageForUpload } from '@/lib/client-image-compression';
+import { QA_ENABLED } from '@/lib/feature-flags';
 import {
   MAX_PRE_COMMENCEMENT_PHOTOS,
   OVERVIEW_QA_TEMPLATE_HELP,
@@ -317,6 +318,7 @@ export default function JobDetailPage() {
 
   // Fetch checklist templates for org (for stage template selector)
   useEffect(() => {
+    if (!QA_ENABLED) return;
     if (!orgSlug || !job) return;
     let cancelled = false;
     setTemplatesLoading(true);
@@ -349,6 +351,7 @@ export default function JobDetailPage() {
   }, [orgSlug, job]);
 
   useEffect(() => {
+    if (!QA_ENABLED) return;
     if (!job?.id || !orgSlug) {
       setQaRuns([]);
       setQaRunIncompleteById({});
@@ -714,7 +717,7 @@ export default function JobDetailPage() {
               />
             </div>
 
-            {job.active_stage_id && (
+            {QA_ENABLED && job.active_stage_id && (
               <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-sc-border bg-sc-surface px-3 py-2 text-sm text-sc-text-secondary">
                 <span className={qaStatusClass}>{qaStatusLabel}</span>
                 <Link
@@ -870,7 +873,7 @@ export default function JobDetailPage() {
                   {activeStageError}
                 </div>
               )}
-              {(templateUpdateError || templatesError) && (
+              {QA_ENABLED && (templateUpdateError || templatesError) && (
                 <div
                   className="mb-3 rounded-xl border border-sc-danger-border bg-sc-danger-tint px-4 py-3 text-sm text-sc-danger"
                   role="alert"
@@ -879,13 +882,13 @@ export default function JobDetailPage() {
                 </div>
               )}
 
-              {stages.length > 0 && (
+              {QA_ENABLED && stages.length > 0 && (
                 <p className="mb-3 text-sm text-sc-text-secondary">{OVERVIEW_QA_TEMPLATE_HELP}</p>
               )}
 
               {stages.length === 0 ? (
                 <p className="rounded-xl border border-sc-border bg-sc-surface px-4 py-6 text-sm text-sc-text-secondary">
-                  No stages yet. Add a stage to organise QA and site work.
+                  No stages yet. Add a stage to organise site work.
                 </p>
               ) : (
                 <ul className="space-y-3">
@@ -912,12 +915,12 @@ export default function JobDetailPage() {
                           : !hasQaTemplate
                             ? 'sign_off'
                             : null;
-                    const hasExplicitFinishedQa = stageHasExplicitFinishedQa({
-                      stageId: stage.id,
-                      stageQaType,
-                      qaRuns,
-                      qaRunIncompleteById,
-                    });
+                    const hasExplicitFinishedQa = QA_ENABLED && stageHasExplicitFinishedQa({
+                        stageId: stage.id,
+                        stageQaType,
+                        qaRuns,
+                        qaRunIncompleteById,
+                      });
                     const stageState = resolveOverviewStageState({
                       isActive,
                       hasExplicitFinishedQa,
@@ -996,7 +999,7 @@ export default function JobDetailPage() {
                           </div>
                         </div>
 
-                        <div className="mt-4 space-y-2">
+                        {QA_ENABLED && <div className="mt-4 space-y-2">
                           <label
                             className="block text-sm font-medium text-sc-text"
                             htmlFor={`qa-template-${stage.id}`}
@@ -1031,9 +1034,9 @@ export default function JobDetailPage() {
                               <span className="text-xs text-sc-text-secondary">No template selected</span>
                             )}
                           </div>
-                        </div>
+                        </div>}
 
-                        {mismatchWarning && (
+                        {QA_ENABLED && mismatchWarning && (
                           <div
                             className="mt-3 rounded-lg border border-sc-warn-border bg-sc-warn-tint px-3 py-2 text-xs text-sc-warn"
                             role="status"
@@ -1042,7 +1045,7 @@ export default function JobDetailPage() {
                           </div>
                         )}
 
-                        {(isPavingTemplate ||
+                        {QA_ENABLED && (isPavingTemplate ||
                           isIrrigationTemplate ||
                           isFencingTemplate ||
                           showSignOff) &&
@@ -1083,7 +1086,7 @@ export default function JobDetailPage() {
                             </div>
                           )}
 
-                        {stage.checklist_templates?.checklist_template_items &&
+                        {QA_ENABLED && stage.checklist_templates?.checklist_template_items &&
                           stage.checklist_templates.checklist_template_items.length > 0 && (
                             <div className="mt-4 border-t border-sc-border pt-3">
                               {(() => {

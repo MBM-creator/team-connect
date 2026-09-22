@@ -292,7 +292,7 @@ export function SiteOperationsDashboard({ orgSlug }: { orgSlug: string }) {
           </div>
         </form>
         <p className="mt-3 text-xs text-gray-500">
-          Melbourne work date · operational jobs only (not hidden from QA list).
+          Melbourne work date · operational jobs only.
         </p>
       </div>
 

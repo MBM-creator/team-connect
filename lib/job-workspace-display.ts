@@ -7,6 +7,7 @@ import {
 import { formatCcStatusLabel, normaliseSearchText } from '@/lib/jobs-list';
 import { buildJobNotesHref } from '@/lib/job-notes-routes';
 import { todayReportDate } from '@/lib/report-date';
+import { QA_ENABLED } from '@/lib/feature-flags';
 
 export type JobWorkspaceJobInput = {
   id: string;
@@ -158,7 +159,9 @@ export function buildJobWorkspaceSections(input: {
   return [
     { id: 'overview', label: 'Overview', href: overviewHref },
     { id: 'today', label: 'Today', href: `${overviewHref}/today` },
-    { id: 'qa', label: 'QA', href: `${overviewHref}/qa` },
+    ...(QA_ENABLED
+      ? [{ id: 'qa' as const, label: 'QA', href: `${overviewHref}/qa` }]
+      : []),
     {
       id: 'notes',
       label: 'Notes',
