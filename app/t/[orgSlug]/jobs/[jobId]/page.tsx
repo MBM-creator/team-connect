@@ -729,14 +729,6 @@ export default function JobDetailPage() {
               </div>
             )}
 
-            <JobNotesEntryCard
-              orgSlug={orgSlug}
-              jobId={jobId}
-              variant="archive"
-              returnTo={`/t/${orgSlug}/jobs/${jobId}`}
-              showPreview
-            />
-
             <section className="mt-8" aria-labelledby="pre-commencement-photos-heading">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                 <h2
@@ -1133,6 +1125,17 @@ export default function JobDetailPage() {
                 </ul>
               )}
             </section>
+
+            {/* Keep job notes last so every current and future stage renders above it. */}
+            <div className="mt-8">
+              <JobNotesEntryCard
+                orgSlug={orgSlug}
+                jobId={jobId}
+                variant="archive"
+                returnTo={`/t/${orgSlug}/jobs/${jobId}`}
+                showPreview
+              />
+            </div>
 
     </JobWorkspaceShell>
   );
