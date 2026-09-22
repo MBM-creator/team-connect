@@ -1145,17 +1145,6 @@ export default function JobDetailPage() {
               />
             </div>
 
-            {/* Keep job notes last so every current and future stage renders above it. */}
-            <div className="mt-8">
-              <JobNotesEntryCard
-                orgSlug={orgSlug}
-                jobId={jobId}
-                variant="archive"
-                returnTo={`/t/${orgSlug}/jobs/${jobId}`}
-                showPreview
-              />
-            </div>
-
     </JobWorkspaceShell>
   );
 }
