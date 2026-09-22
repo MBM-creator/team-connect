@@ -8,6 +8,7 @@ import { JobBriefMediaPanel } from '@/components/JobBriefMediaPanel';
 import { JobNotesEntryCard } from '@/components/JobNotesEntryCard';
 import { JobWorkspaceShell } from '@/components/JobWorkspaceShell';
 import type { CcProject } from '@/lib/cc-client';
+import { formatAustralianDate } from '@/lib/australian-date';
 import { clientFacingDetails } from '@/lib/cc-client-display';
 import { compressImageForUpload } from '@/lib/client-image-compression';
 import { JOB_STAGES_SECTION_ENABLED, QA_ENABLED } from '@/lib/feature-flags';
@@ -619,12 +620,7 @@ export default function JobDetailPage() {
   }
 
   function formatDate(iso: string): string {
-    try {
-      const d = new Date(iso);
-      return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { dateStyle: 'short' });
-    } catch {
-      return '';
-    }
+    return formatAustralianDate(iso);
   }
 
   function normaliseProjectMatch(value: string | null | undefined): string {

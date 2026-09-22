@@ -9,6 +9,7 @@ import {
   DAILY_PLAN_MAX_OUTCOMES,
   DAILY_PLAN_THREE_OUTCOME_LIMIT_MESSAGE,
 } from '@/lib/daily-plan-shared';
+import { formatAustralianCalendarDate } from '@/lib/australian-date';
 import type { DailyPlanOutcomeExecutionStatus } from '@/lib/daily-plan-execution';
 import { nextCalendarDate } from '@/lib/report-date';
 
@@ -89,15 +90,7 @@ export function priorUseLabel(prior: CarryForwardPriorUse | null): string | null
 
 /** Soft weekday-friendly label for Melbourne YYYY-MM-DD (no locale dependency on TZ). */
 export function formatFriendlyWorkDate(workDate: string): string {
-  const [y, m, d] = workDate.split('-').map(Number);
-  if (!y || !m || !d) return workDate;
-  const utc = new Date(Date.UTC(y, m - 1, d));
-  return new Intl.DateTimeFormat('en-AU', {
-    timeZone: 'UTC',
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }).format(utc);
+  return formatAustralianCalendarDate(workDate, workDate);
 }
 
 export function appendNotesForTomorrow(

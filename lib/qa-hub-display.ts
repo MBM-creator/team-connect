@@ -1,4 +1,5 @@
 import type { QaCheckType } from '@/lib/cc-project-context';
+import { formatAustralianDateTime } from '@/lib/australian-date';
 import { BLOCKING_ISSUE_STATUSES } from '@/lib/qa-evidence-graph';
 
 export type QaType = 'paving' | 'irrigation' | 'fencing' | 'sign_off';
@@ -48,21 +49,9 @@ export function runDisplayStatus(run: QaHubRun): string {
   return 'Completed';
 }
 
-const QA_HUB_DATE_FORMATTER = new Intl.DateTimeFormat('en-AU', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-  timeZone: 'Australia/Melbourne',
-  hour12: true,
-});
-
 export function formatQaDateTime(iso: string | null | undefined): string {
   if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return QA_HUB_DATE_FORMATTER.format(date);
+  return formatAustralianDateTime(iso);
 }
 
 export function qaRunPath(orgSlug: string, jobId: string, runId: string, qaType: string | null | undefined): string {

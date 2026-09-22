@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { formatAustralianDateTime } from '@/lib/australian-date';
 import type {
   DailyPlanApi,
   DailyPlanChangeApi,
@@ -23,12 +24,7 @@ import {
 import { DailyPlanChangeForm } from '@/components/DailyPlanChangeForm';
 
 function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('en-AU', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return formatAustralianDateTime(value, value);
 }
 
 type ExecutionCallbacks = {

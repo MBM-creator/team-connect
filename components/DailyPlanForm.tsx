@@ -322,6 +322,7 @@ export function DailyPlanForm({
         <input
           id="workDate"
           type="date"
+          lang="en-AU"
           className={fieldClass}
           value={form.workDate}
           disabled={workDateLocked || mode === 'edit' || submitting}

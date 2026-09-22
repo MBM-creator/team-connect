@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { formatAustralianDate } from '@/lib/australian-date';
 
 interface ChecklistTemplate {
   id: string;
@@ -57,12 +58,7 @@ export default function ChecklistTemplatesListPage() {
   }, [orgSlug]);
 
   function formatDate(iso: string): string {
-    try {
-      const d = new Date(iso);
-      return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { dateStyle: 'short' });
-    } catch {
-      return '';
-    }
+    return formatAustralianDate(iso);
   }
 
   return (
