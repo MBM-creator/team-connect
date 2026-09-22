@@ -10,7 +10,7 @@ import { JobWorkspaceShell } from '@/components/JobWorkspaceShell';
 import type { CcProject } from '@/lib/cc-client';
 import { clientFacingDetails } from '@/lib/cc-client-display';
 import { compressImageForUpload } from '@/lib/client-image-compression';
-import { QA_ENABLED } from '@/lib/feature-flags';
+import { JOB_STAGES_SECTION_ENABLED, QA_ENABLED } from '@/lib/feature-flags';
 import {
   MAX_PRE_COMMENCEMENT_PHOTOS,
   OVERVIEW_QA_TEMPLATE_HELP,
@@ -231,6 +231,7 @@ export default function JobDetailPage() {
         }
         setJob(found);
 
+        if (!JOB_STAGES_SECTION_ENABLED) return undefined;
         return fetch(`/api/stages?jobId=${encodeURIComponent(found.id)}`);
       })
       .then((stagesRes) => {
@@ -414,6 +415,7 @@ export default function JobDetailPage() {
   }
 
   async function refetchStages() {
+    if (!JOB_STAGES_SECTION_ENABLED) return;
     if (!job?.id) return;
     try {
       const res = await fetch(`/api/stages?jobId=${encodeURIComponent(job.id)}`);
@@ -427,6 +429,7 @@ export default function JobDetailPage() {
   }
 
   async function setActiveStage(stageId: string) {
+    if (!JOB_STAGES_SECTION_ENABLED) return;
     setActiveStageError(null);
     setStageIdSettingActive(stageId);
     try {
@@ -452,6 +455,7 @@ export default function JobDetailPage() {
   }
 
   async function setStageTemplate(stageId: string, checklistTemplateId: string | null) {
+    if (!JOB_STAGES_SECTION_ENABLED) return;
     setTemplateUpdateError(null);
     setStageIdUpdatingTemplate(stageId);
     try {
@@ -479,6 +483,7 @@ export default function JobDetailPage() {
   }
 
   async function moveStage(stageId: string, direction: 'up' | 'down') {
+    if (!JOB_STAGES_SECTION_ENABLED) return;
     if (!orgSlug || stageIdMoving) return;
     const reorderedStages = reorderStagesById(stages, stageId, direction);
     if (!reorderedStages) return;
@@ -519,6 +524,7 @@ export default function JobDetailPage() {
 
   async function handleAddStage(e: React.FormEvent) {
     e.preventDefault();
+    if (!JOB_STAGES_SECTION_ENABLED) return;
     const nameError = validateNewStageName(stageName);
     if (nameError) {
       setStageError(nameError);
@@ -813,7 +819,8 @@ export default function JobDetailPage() {
               )}
             </section>
 
-            <section className="mt-8" aria-labelledby="stages-heading">
+            {JOB_STAGES_SECTION_ENABLED && (
+              <section className="mt-8" aria-labelledby="stages-heading">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                 <h2 id="stages-heading" className="text-lg font-semibold text-sc-charcoal">
                   Stages
@@ -1124,7 +1131,19 @@ export default function JobDetailPage() {
                   })}
                 </ul>
               )}
-            </section>
+              </section>
+            )}
+
+            {/* Keep job notes last so every current and future stage renders above it. */}
+            <div className="mt-8">
+              <JobNotesEntryCard
+                orgSlug={orgSlug}
+                jobId={jobId}
+                variant="archive"
+                returnTo={`/t/${orgSlug}/jobs/${jobId}`}
+                showPreview
+              />
+            </div>
 
             {/* Keep job notes last so every current and future stage renders above it. */}
             <div className="mt-8">
