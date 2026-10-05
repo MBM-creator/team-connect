@@ -290,7 +290,7 @@ export default function NewJobPage() {
                       )}
                     </div>
                     <p className="text-gray-600">
-                      {selectedProject.sections.length} section{selectedProject.sections.length === 1 ? '' : 's'} will be synced into this job.
+                      This job will link to the selected Client Connect project. Project sections will not be imported as stages.
                     </p>
                   </div>
                 )}

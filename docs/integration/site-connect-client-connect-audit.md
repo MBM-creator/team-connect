@@ -146,7 +146,9 @@ All nullable; no FK into Client Connect:
 - `cc_section_name_snapshot`
 - `cc_section_trade`
 
-Unique on `(job_id, cc_section_id)` when linked (`20260520181000_stage_client_connect_section_link.sql`). Synced by `syncCcProjectStagesForJob` in `lib/sync-cc-project-stages.ts`.
+Unique on `(job_id, cc_section_id)` when linked (`20260520181000_stage_client_connect_section_link.sql`). These legacy link fields remain for existing records, but Client Connect sections are no longer imported as Team Connect stages.
+
+Current Team Connect scope (October 2026): Stages and QA remain hidden and disabled via `lib/feature-flags.ts`. Job creation, refresh and project relinking only update job-level identity and snapshots; they must not create, rename, reorder or delete stages, or replace the active-stage pointer. Existing stage history is retained. PR #60 excludes stage deletion, the checklist rename migration and additional stage-management UI. The job overview retains exactly one final notes/photos/videos section and Australian date formatting.
 
 ### 3.5 Identity resolution order
 
@@ -950,7 +952,6 @@ Inbound (future, SC → CC, only when user action requires):
 - `lib/cc-client.ts`
 - `lib/cc-client-display.ts`
 - `lib/cc-project-context.ts`
-- `lib/sync-cc-project-stages.ts`
 - `app/api/cc/projects/route.ts`
 - `app/api/jobs/route.ts`
 - `app/api/jobs/[jobId]/cc-mapping/route.ts`

@@ -10,7 +10,6 @@ import {
   isCcIntegrationOrgAllowed,
 } from '@/lib/cc-integration-access';
 import { enrichJobsWithSiteLocation } from '@/lib/job-site-location';
-import { syncCcProjectStagesForJob } from '@/lib/sync-cc-project-stages';
 import { randomUUID } from 'crypto';
 
 export const runtime = 'nodejs';
@@ -188,19 +187,6 @@ async function upsertCcProjectJob(
       supabaseError: supabaseErr,
     });
     throw new Error('Failed to sync Client Connect jobs');
-  }
-
-  try {
-    await syncCcProjectStagesForJob(job.id as string, project, requestId);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to sync Client Connect sections to stages';
-    console.error('[api/jobs] CC stage sync failed:', {
-      requestId,
-      projectId: project.project_id,
-      jobId: job.id,
-      error: message,
-    });
-    throw new Error(message);
   }
 
   return job as JobRow;
@@ -500,23 +486,6 @@ export async function POST(request: NextRequest) {
     const supabaseErr = normalizeSupabaseError(insertError ?? null);
     console.error('[api/jobs] POST insert failed:', { requestId, supabaseError: supabaseErr });
     return serverError(requestId, supabaseErr.code ?? 'JOB_INSERT', 'Failed to create job');
-  }
-
-  if (ccProject) {
-    try {
-      await syncCcProjectStagesForJob(job.id as string, ccProject, requestId);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to sync Client Connect sections to stages';
-      console.error('[api/jobs] POST CC stage sync failed:', {
-        requestId,
-        projectId: ccProject.project_id,
-        jobId: job.id,
-        error: message,
-      });
-      const res = NextResponse.json({ ok: false, requestId, message }, { status: 502 });
-      res.headers.set('x-request-id', requestId);
-      return res;
-    }
   }
 
   const res = NextResponse.json({ ok: true, job }, { status: 201 });
