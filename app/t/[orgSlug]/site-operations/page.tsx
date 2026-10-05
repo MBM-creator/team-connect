@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { requireAdminPage } from '@/lib/require-admin-page';
 import { SiteOperationsDashboard } from '@/components/SiteOperationsDashboard';
+import { QA_ENABLED } from '@/lib/feature-flags';
 
 export default async function SiteOperationsPage({
   params,
@@ -36,12 +37,14 @@ export default async function SiteOperationsPage({
             >
               Admin dashboard
             </Link>
-            <Link
-              href={`/t/${orgSlug}/overview`}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-            >
-              Jobs overview
-            </Link>
+            {QA_ENABLED && (
+              <Link
+                href={`/t/${orgSlug}/overview`}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+              >
+                Jobs overview
+              </Link>
+            )}
           </div>
         </div>
 

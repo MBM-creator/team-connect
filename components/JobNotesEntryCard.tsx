@@ -4,6 +4,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { formatAustralianDateTime } from '@/lib/australian-date';
 import { buildJobNotesHref, type JobNotesMode } from '@/lib/job-notes-routes';
 
 interface NotePreview {
@@ -44,17 +45,6 @@ const COPY: Record<
       'inline-block rounded-lg border border-sc-euca/30 px-4 py-2 text-sm font-medium text-sc-euca transition-colors hover:bg-sc-euca-tint',
   },
 };
-
-function formatPreviewDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime())
-      ? ''
-      : d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return '';
-  }
-}
 
 function previewSummary(note: NotePreview): string {
   const trimmed = note.body.trim();
@@ -124,7 +114,7 @@ export function JobNotesEntryCard({
                 {previewNotes.map((note) => (
                   <li key={note.id} className="text-sm text-gray-700">
                     <span className="font-medium text-gray-900">{note.author_name}</span>
-                    <span className="text-gray-500"> · {formatPreviewDate(note.created_at)}</span>
+                    <span className="text-gray-500"> · {formatAustralianDateTime(note.created_at)}</span>
                     <p className="mt-0.5 text-gray-600">{previewSummary(note)}</p>
                   </li>
                 ))}

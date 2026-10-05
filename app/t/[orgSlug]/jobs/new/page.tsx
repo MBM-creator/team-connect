@@ -286,11 +286,11 @@ export default function NewJobPage() {
                           </span>
                         ))
                       ) : (
-                        <span className="text-gray-500">No QA trades set</span>
+                        <span className="text-gray-500">No trades set</span>
                       )}
                     </div>
                     <p className="text-gray-600">
-                      Project stages and QA checklists can be added after the job is created.
+                      This job will link to the selected Client Connect project. Project sections will not be imported as stages.
                     </p>
                   </div>
                 )}

@@ -303,7 +303,6 @@ export async function PATCH(
     if (existingJob) {
       return jsonError('This project is already linked to another Team Connect job', 409, requestId);
     }
-
   } else {
     cc_quote_id = null;
     cc_job_id = null;

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Upload } from 'tus-js-client';
+import { formatAustralianCalendarDate, formatAustralianDateTime } from '@/lib/australian-date';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { compressImageForUpload } from '@/lib/client-image-compression';
 import type { JobNotesMode } from '@/lib/job-notes-routes';
@@ -93,17 +94,6 @@ const MODE_COPY: Record<JobNotesMode, { title: string; description: string; subm
   },
 };
 
-function formatDateTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime())
-      ? ''
-      : d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return '';
-  }
-}
-
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '';
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -112,9 +102,7 @@ function formatBytes(bytes: number): string {
 
 function formatReportDate(value: string | null): string {
   if (!value) return 'No date';
-  const [year, month, day] = value.split('-').map(Number);
-  if (!year || !month || !day) return value;
-  return new Date(year, month - 1, day).toLocaleDateString(undefined, { dateStyle: 'medium' });
+  return formatAustralianCalendarDate(value, value);
 }
 
 function noteMatchesReportDate(note: JobNote, reportDate: string): boolean {
@@ -536,6 +524,7 @@ export function JobActivityFeed({
           <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
           <input
             type="date"
+            lang="en-AU"
             value={reportDate}
             onChange={(e) => setReportDate(e.target.value)}
             disabled={submitting}
@@ -647,7 +636,7 @@ export function JobActivityFeed({
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900">{note.author_name}</p>
                   <p className="text-xs text-gray-500">
-                    {formatDateTime(note.created_at)}
+                    {formatAustralianDateTime(note.created_at)}
                     {note.stage_name ? ` · ${note.stage_name}` : ''}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { formatAustralianDateTime } from '@/lib/australian-date';
 import { ClientConnectJobSummary } from '@/components/ClientConnectJobSummary';
 import { DailySiteUpdateHistory, type DailySiteUpdateApiRow } from '@/components/DailySiteUpdateHistory';
 import type { CcProject } from '@/lib/cc-client';
@@ -101,17 +102,6 @@ const EMPTY_FORM = {
 function formatHours(value: number | null): string {
   if (value == null || Number.isNaN(value)) return '—';
   return `${value.toFixed(1)} h`;
-}
-
-function formatDateTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime())
-      ? ''
-      : d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return '';
-  }
 }
 
 function progressSnippet(text: string, max = 120): string {
@@ -387,7 +377,7 @@ export function DailySiteUpdatePanel({
                   <div>
                     <p className="text-sm font-medium text-gray-900">{latestToday.authorName}</p>
                     {latestToday.submittedAt && (
-                      <p className="text-xs text-gray-500">{formatDateTime(latestToday.submittedAt)}</p>
+                      <p className="text-xs text-gray-500">{formatAustralianDateTime(latestToday.submittedAt)}</p>
                     )}
                   </div>
                   <span

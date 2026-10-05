@@ -1,6 +1,6 @@
 export const APP_NAME = 'Team Connect';
 
-export const APP_TAGLINE = 'Job updates and QA checks for Made By Mobbs crews';
+export const APP_TAGLINE = 'Job planning and updates for Made By Mobbs crews';
 
 export const APP_LOGO_ICON_SRC = '/brand/team-connect-icon.png';
 export const APP_LOGO_FULL_SRC = '/brand/team-connect-logo.png';

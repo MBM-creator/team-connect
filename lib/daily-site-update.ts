@@ -4,6 +4,7 @@ import { v2RunHasIncompleteEvidence } from '@/lib/paving-qa-v2-graph';
 import { irrigationRunHasIncompleteEvidence } from '@/lib/irrigation-qa-v1-graph';
 import { fencingRunHasIncompleteEvidence } from '@/lib/fencing-qa-v1-graph';
 import { signoffRunHasIncompleteEvidence } from '@/lib/signoff-qa-v1-graph';
+import { QA_ENABLED } from '@/lib/feature-flags';
 import { resolveReportTimezone, todayReportDate } from '@/lib/report-date';
 import {
   parseDailySiteUpdatePostBody,
@@ -125,6 +126,8 @@ export async function loadQaEvidenceWarning(
   jobId: string,
   requestId?: string
 ): Promise<{ message: string; activeRunId: string; qaType?: string } | null> {
+  if (!QA_ENABLED) return null;
+
   try {
     const { data: activeQaRows } = await supabaseAdmin
       .from('paving_qa_runs')

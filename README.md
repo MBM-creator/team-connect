@@ -144,14 +144,14 @@ Visit `http://localhost:3000` or go directly to `http://localhost:3000/t/madebym
    - `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
    - `RESEND_API_KEY` - Your Resend API key (so notification emails are sent when a report is submitted)
    - `RESEND_FROM_EMAIL` (optional) - e.g. `Team Connect <reports@yourdomain.com>`; must use a verified domain in Resend. If omitted, defaults to `onboarding@resend.dev`.
-   - `APP_URL` (optional) - Public app URL for auth emails, e.g. `https://qa.madebymobbs.com.au`. If omitted in production, defaults to `https://qa.madebymobbs.com.au`.
+   - `APP_URL` (optional) - Public app URL for auth emails. In production, set this to `https://team.madebymobbs.com.au`; if omitted, that production URL is used automatically.
    - `CC_BASE_URL` / `CC_INTERNAL_API_KEY` (optional) - Client Connect internal project feed for the MBM bridge.
    - `CC_INTEGRATION_ORG_IDS` (optional) - Comma-separated Team Connect organisation UUIDs allowed to use that bridge. **Default deny.** Temporary feature gate only — not Client Connect tenant isolation. Set to the Made By Mobbs `organisations.id` in production/staging.
 
 4. Deploy
 
 5. Configure Custom Domain (optional):
-   - Add `qa.madebymobbs.com.au` in Vercel project settings
+   - Add `team.madebymobbs.com.au` in Vercel project settings
    - Update DNS records as instructed by Vercel
 
 ### Daily Plan pilot (Phase 2G)

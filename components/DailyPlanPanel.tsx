@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatAustralianCalendarDate, formatAustralianDateTime } from '@/lib/australian-date';
 import type { DailyPlanApi } from '@/lib/daily-plan-shared';
 import {
   DAILY_PLAN_EMPTY_MESSAGE,
@@ -32,25 +33,11 @@ type DailyPlanViewProps = {
 };
 
 function formatWorkDateLabel(workDate: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)) return workDate;
-  const [y, m, d] = workDate.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return new Intl.DateTimeFormat('en-AU', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(date);
+  return formatAustralianCalendarDate(workDate, workDate);
 }
 
 export function formatDailyPlanStartedAt(startedAt: string): string {
-  const date = new Date(startedAt);
-  if (Number.isNaN(date.getTime())) return startedAt;
-  return date.toLocaleString('en-AU', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return formatAustralianDateTime(startedAt, startedAt);
 }
 
 export function DailyPlanView({
@@ -517,6 +504,7 @@ export function DailyPlanPanel({
           <input
             id="daily-plan-work-date"
             type="date"
+            lang="en-AU"
             className="mt-1 w-full min-h-[44px] rounded-lg border border-gray-300 px-3 py-2 text-base text-gray-900 sm:w-auto"
             value={workDate}
             onChange={(e) => setWorkDate(e.target.value)}

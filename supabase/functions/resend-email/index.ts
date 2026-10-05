@@ -155,7 +155,10 @@ Deno.serve(async (req) => {
 
     const { token, token_hash, redirect_to, email_action_type } = email_data;
 
-    const appUrl = (Deno.env.get('APP_URL') ?? 'https://qa.madebymobbs.com.au').replace(/\/$/, '');
+    const configuredAppUrl = Deno.env.get('APP_URL')?.trim().replace(/\/$/, '');
+    const appUrl = !configuredAppUrl || configuredAppUrl === 'https://qa.madebymobbs.com.au'
+      ? 'https://team.madebymobbs.com.au'
+      : configuredAppUrl;
     let redirectTo = redirect_to ?? '';
     if (email_action_type === 'recovery') {
       const resetPath = '/auth/callback?next=' + encodeURIComponent('/auth/reset-password');

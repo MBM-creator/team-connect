@@ -8,6 +8,7 @@ import { fencingRunHasIncompleteEvidence } from '@/lib/fencing-qa-v1-graph';
 import { signoffRunHasIncompleteEvidence } from '@/lib/signoff-qa-v1-graph';
 import { loadCcProjectForJob } from '@/lib/cc-project-context';
 import { randomUUID } from 'crypto';
+import { QA_ENABLED } from '@/lib/feature-flags';
 
 export const runtime = 'nodejs';
 
@@ -286,7 +287,8 @@ export async function GET(
   }
 
   let qaEodWarning: { message: string; activeRunId: string; qaType?: string } | null = null;
-  try {
+  if (QA_ENABLED) {
+    try {
     const { data: activeQaRows } = await supabaseAdmin
       .from('paving_qa_runs')
       .select('id, qa_type')
@@ -347,8 +349,9 @@ export async function GET(
         break;
       }
     }
-  } catch (qaErr) {
-    console.warn('[api/jobs/[jobId]/today] QA warning skipped:', { requestId, qaErr });
+    } catch (qaErr) {
+      console.warn('[api/jobs/[jobId]/today] QA warning skipped:', { requestId, qaErr });
+    }
   }
 
   const ccProject = await loadCcProjectForJob(job, org.id as string, requestId);

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireAdminPage } from '@/lib/require-admin-page';
 import { AdminDashboard } from '@/components/AdminDashboard';
+import { QA_ENABLED } from '@/lib/feature-flags';
 
 export default async function AdminDashboardPage({
   params,
@@ -36,16 +37,18 @@ export default async function AdminDashboardPage({
             >
               Manage staff
             </Link>
-            <Link
-              href={`/t/${orgSlug}/overview`}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-            >
-              Jobs overview
-            </Link>
+            {QA_ENABLED && (
+              <Link
+                href={`/t/${orgSlug}/overview`}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+              >
+                Jobs overview
+              </Link>
+            )}
           </div>
         </div>
 
-        <AdminDashboard orgSlug={orgSlug} />
+        {QA_ENABLED && <AdminDashboard orgSlug={orgSlug} />}
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: `${APP_NAME} - Made By Mobbs`,
-  description: `${APP_NAME} for Made By Mobbs job updates and QA checks`,
+  description: `${APP_NAME} for Made By Mobbs job planning and updates`,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -32,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en-AU">
       <head>
         <meta httpEquiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />

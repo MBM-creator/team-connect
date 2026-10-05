@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatAustralianDateTime } from '@/lib/australian-date';
 import type {
   ActivityFeedItem,
   AdminDashboardData,
@@ -50,8 +51,7 @@ function statusBadge(status: SupervisorActivityStatus): string {
 
 function formatWhen(iso: string | null): string {
   if (!iso) return '—';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
+  return formatAustralianDateTime(iso, '—');
 }
 
 function Card({ label, value }: { label: string; value: number }) {

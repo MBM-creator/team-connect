@@ -217,17 +217,17 @@ describe('job workspace — lifecycle and health', () => {
 });
 
 describe('job workspace — navigation', () => {
-  it('exposes every top-level workspace destination for the job id', () => {
+  it('hides the disabled QA destination while preserving active workspace links', () => {
     const sections = buildJobWorkspaceSections({
       orgSlug: 'mbm',
       jobId: 'job-uuid-1',
       activeStageId: 'stage-1',
     });
 
-    expect(sections.map((s) => s.id)).toEqual(['overview', 'today', 'qa', 'notes']);
+    expect(sections.map((s) => s.id)).toEqual(['overview', 'today', 'notes']);
     expect(sections.find((s) => s.id === 'overview')?.href).toBe('/t/mbm/jobs/job-uuid-1');
     expect(sections.find((s) => s.id === 'today')?.href).toBe('/t/mbm/jobs/job-uuid-1/today');
-    expect(sections.find((s) => s.id === 'qa')?.href).toBe('/t/mbm/jobs/job-uuid-1/qa');
+    expect(sections.find((s) => s.id === 'qa')).toBeUndefined();
     expect(sections.find((s) => s.id === 'notes')?.href).toContain('/t/mbm/jobs/job-uuid-1/notes');
     expect(sections.find((s) => s.id === 'notes')?.href).toContain('mode=capture');
   });

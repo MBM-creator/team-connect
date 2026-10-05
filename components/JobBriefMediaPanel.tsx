@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { formatAustralianDate } from '@/lib/australian-date';
 import { compressImageForUpload } from '@/lib/client-image-compression';
 import { readVideoDurationSeconds, uploadTusFile, type TusUploadPreflight } from '@/lib/client-tus-upload';
 import { JOB_MEDIA_VIDEO_MAX_SECONDS } from '@/lib/job-media';
@@ -59,12 +60,7 @@ function formatBytes(bytes: number): string {
 }
 
 function formatShortDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { dateStyle: 'short' });
-  } catch {
-    return '';
-  }
+  return formatAustralianDate(iso);
 }
 
 export function JobBriefMediaPanel({ orgSlug, jobId }: JobBriefMediaPanelProps) {

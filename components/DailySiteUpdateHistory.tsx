@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { formatAustralianDateTime } from '@/lib/australian-date';
 import type { DailySiteUpdateApiRow, OnTrackStatus } from '@/lib/daily-site-update-shared';
 
 interface DailySiteUpdateHistoryProps {
@@ -27,17 +28,6 @@ const ON_TRACK_CLASSES: Record<OnTrackStatus, string> = {
   off_track: 'bg-red-50 text-red-800 border-red-200',
   unknown: 'bg-gray-100 text-gray-700 border-gray-200',
 };
-
-function formatDateTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime())
-      ? ''
-      : d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return '';
-  }
-}
 
 function fieldBlock(label: string, value: string, noneFlag?: boolean, noneLabel?: string) {
   if (noneFlag) {
@@ -184,7 +174,7 @@ export function DailySiteUpdateHistory({
                   {update.reportDate}
                   {update.stageName ? ` · ${update.stageName}` : ' · Job level'}
                   {' · '}
-                  {formatDateTime(update.submittedAt)}
+                  {formatAustralianDateTime(update.submittedAt)}
                 </p>
               </div>
               <span
