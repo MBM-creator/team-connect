@@ -192,8 +192,10 @@ export function JobActivityFeed({
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [uploadLabel, setUploadLabel] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const videoRef = useRef<HTMLInputElement>(null);
-  const imageRef = useRef<HTMLInputElement>(null);
+  const videoCameraRef = useRef<HTMLInputElement>(null);
+  const videoLibraryRef = useRef<HTMLInputElement>(null);
+  const imageCameraRef = useRef<HTMLInputElement>(null);
+  const imageLibraryRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setReportDate(initialReportDate ?? todayReportDate());
@@ -246,13 +248,13 @@ export function JobActivityFeed({
     if (!JOB_NOTE_VIDEO_MIME_TYPES.includes(file.type as (typeof JOB_NOTE_VIDEO_MIME_TYPES)[number])) {
       setVideoFile(null);
       setVideoError('Video must be MP4, MOV, or WebM.');
-      if (videoRef.current) videoRef.current.value = '';
+      e.target.value = '';
       return;
     }
     if (file.size > JOB_NOTE_VIDEO_MAX_BYTES) {
       setVideoFile(null);
       setVideoError('Video must be 50MB or smaller.');
-      if (videoRef.current) videoRef.current.value = '';
+      e.target.value = '';
       return;
     }
     setVideoFile(file);
@@ -271,13 +273,13 @@ export function JobActivityFeed({
       if (!file.type.startsWith('image/')) {
         setImageError('Photos must be image files (JPEG, PNG, or WebP).');
         setImageFiles([]);
-        if (imageRef.current) imageRef.current.value = '';
+        e.target.value = '';
         return;
       }
       if (file.size > JOB_NOTE_IMAGE_MAX_BYTES) {
         setImageError('Each photo must be 10MB or smaller.');
         setImageFiles([]);
-        if (imageRef.current) imageRef.current.value = '';
+        e.target.value = '';
         return;
       }
       next.push(file);
@@ -286,7 +288,7 @@ export function JobActivityFeed({
     if (next.length > JOB_NOTE_IMAGE_MAX_PER_NOTE) {
       setImageError(`You can add up to ${JOB_NOTE_IMAGE_MAX_PER_NOTE} photos per note.`);
       setImageFiles([]);
-      if (imageRef.current) imageRef.current.value = '';
+      e.target.value = '';
       return;
     }
 
@@ -427,8 +429,10 @@ export function JobActivityFeed({
       setImageFiles([]);
       setUploadPct(null);
       setUploadLabel(null);
-      if (videoRef.current) videoRef.current.value = '';
-      if (imageRef.current) imageRef.current.value = '';
+      if (videoCameraRef.current) videoCameraRef.current.value = '';
+      if (videoLibraryRef.current) videoLibraryRef.current.value = '';
+      if (imageCameraRef.current) imageCameraRef.current.value = '';
+      if (imageLibraryRef.current) imageLibraryRef.current.value = '';
       await loadNotes();
     } catch (err) {
       if (noteId) await removeEmptyFailedNote(noteId);
@@ -549,14 +553,43 @@ export function JobActivityFeed({
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Photos</label>
           <input
-            ref={imageRef}
+            ref={imageCameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleImageSelect}
+            disabled={submitting}
+            className="hidden"
+            aria-label="Take a new photo"
+          />
+          <input
+            ref={imageLibraryRef}
             type="file"
             accept={ACCEPTED_IMAGE_TYPES}
             multiple
             onChange={handleImageSelect}
             disabled={submitting}
-            className="w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border file:border-gray-300 file:bg-white file:px-3 file:py-2 file:text-gray-700 hover:file:bg-gray-50 disabled:opacity-50"
+            className="hidden"
+            aria-label="Choose existing photos"
           />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => imageCameraRef.current?.click()}
+              disabled={submitting}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Take photo
+            </button>
+            <button
+              type="button"
+              onClick={() => imageLibraryRef.current?.click()}
+              disabled={submitting}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Choose photos
+            </button>
+          </div>
           <p className="mt-1 text-xs text-gray-500">
             JPEG, PNG, or WebP. Up to {JOB_NOTE_IMAGE_MAX_PER_NOTE} photos, 10MB each.
           </p>
@@ -570,14 +603,42 @@ export function JobActivityFeed({
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Video</label>
           <input
-            ref={videoRef}
+            ref={videoCameraRef}
             type="file"
-            accept={ACCEPTED_VIDEO_TYPES}
+            accept="video/*"
             capture="environment"
             onChange={handleVideoSelect}
             disabled={submitting}
-            className="w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border file:border-gray-300 file:bg-white file:px-3 file:py-2 file:text-gray-700 hover:file:bg-gray-50 disabled:opacity-50"
+            className="hidden"
+            aria-label="Record a new video"
           />
+          <input
+            ref={videoLibraryRef}
+            type="file"
+            accept={ACCEPTED_VIDEO_TYPES}
+            onChange={handleVideoSelect}
+            disabled={submitting}
+            className="hidden"
+            aria-label="Choose an existing video"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => videoCameraRef.current?.click()}
+              disabled={submitting}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Record video
+            </button>
+            <button
+              type="button"
+              onClick={() => videoLibraryRef.current?.click()}
+              disabled={submitting}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Choose video
+            </button>
+          </div>
           <p className="mt-1 text-xs text-gray-500">
             MP4, MOV, or WebM. Max 60 seconds and 50MB.
           </p>
