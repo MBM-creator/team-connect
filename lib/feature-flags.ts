@@ -14,5 +14,6 @@ export const JOB_STAGES_SECTION_ENABLED: boolean = false;
 /**
  * Stage data remains available to existing workflows while stage headings,
  * selectors and names stay hidden throughout the Team Connect interface.
+ * Set this to true to restore those labels without changing stored stage data.
  */
 export const STAGE_LABELS_ENABLED: boolean = false;
