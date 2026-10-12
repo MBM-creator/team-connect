@@ -60,7 +60,7 @@ function isValidUuid(s: string): boolean {
 }
 
 const JOB_SELECT =
-  'id, organisation_id, name, site_id, created_at, active_stage_id, cc_project_id, cc_quote_id, cc_job_id, cc_job_number, cc_client_id, cc_project_title_snapshot, cc_client_name_snapshot, hidden_from_qa_at';
+  'id, organisation_id, name, site_id, created_at, active_stage_id, cc_project_id, cc_quote_id, cc_job_id, cc_job_number, cc_client_id, cc_project_title_snapshot, cc_client_name_snapshot, cc_site_address_snapshot, hidden_from_qa_at';
 
 type JobRow = {
   id: string;
@@ -76,6 +76,7 @@ type JobRow = {
   cc_client_id: string | null;
   cc_project_title_snapshot: string | null;
   cc_client_name_snapshot: string | null;
+  cc_site_address_snapshot: string | null;
   hidden_from_qa_at?: string | null;
 };
 
@@ -163,6 +164,7 @@ async function upsertCcProjectJob(
     cc_client_id: project.client_id,
     cc_project_title_snapshot: project.project_title,
     cc_client_name_snapshot: ccClientDisplayName(project),
+    cc_site_address_snapshot: project.site_address,
   };
 
   const query = existingJob
@@ -219,34 +221,8 @@ export async function GET(request: NextRequest) {
     return staffAuth;
   }
 
-  const { data: org, error: orgError } = await supabaseAdmin
-    .from('organisations')
-    .select('id')
-    .eq('slug', orgSlug)
-    .single();
-
-  if (orgError || !org) {
-    const supabaseErr = normalizeSupabaseError(orgError ?? null);
-    console.error('[api/jobs] GET org lookup failed:', { requestId, orgSlug, supabaseError: supabaseErr });
-    const res = NextResponse.json(
-      {
-        ok: false,
-        requestId,
-        message: process.env.NODE_ENV === 'development' && orgError
-          ? `Invalid organisation: ${orgError.message}`
-          : 'Invalid organisation',
-      },
-      { status: 404 }
-    );
-    res.headers.set('x-request-id', requestId);
-    return res;
-  }
-
-  // Authoritative org id from authenticated staff context — never trust a browser org id.
+  // guardStaffApi has already resolved and authorised this organisation.
   const organisationId = staffAuth.org.id;
-  if (organisationId !== org.id) {
-    return jsonError('You do not have access to this organisation', 403, requestId);
-  }
 
   const jobIdFilter = request.nextUrl.searchParams.get('jobId')?.trim() ?? '';
 
@@ -268,6 +244,25 @@ export async function GET(request: NextRequest) {
     }
 
     return respondWithJobs((jobs ?? []) as JobRow[], organisationId, requestId);
+  }
+
+  // List screens render saved Team Connect jobs immediately. Current Client
+  // Connect project details are loaded separately by /api/cc/projects, so a
+  // list view must not block on a full project + stage write synchronisation.
+  if (request.nextUrl.searchParams.get('sync') === 'false') {
+    try {
+      const jobs = await loadSavedJobsForOrg(organisationId, requestId);
+      return respondWithJobs(
+        jobs,
+        organisationId,
+        requestId,
+        { viewerRole: staffAuth.staff.role },
+        []
+      );
+    } catch (err) {
+      const message = err instanceof Error && err.message ? err.message : 'Failed to list jobs';
+      return serverError(requestId, 'JOBS_FAST_LIST', message);
+    }
   }
 
   if (!isCcIntegrationOrgAllowed(organisationId)) {
@@ -492,6 +487,7 @@ export async function POST(request: NextRequest) {
       cc_client_id: ccProject?.client_id ?? null,
       cc_project_title_snapshot: ccProject?.project_title ?? null,
       cc_client_name_snapshot: ccProject ? ccClientDisplayName(ccProject) : null,
+      cc_site_address_snapshot: ccProject?.site_address ?? null,
     })
     .select(JOB_SELECT)
     .single();

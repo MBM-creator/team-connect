@@ -115,23 +115,13 @@ export default function JobsListPage() {
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    if (!orgSlug) return;
-    fetch(`/api/auth/me?orgSlug=${encodeURIComponent(orgSlug)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.ok && data?.staff?.role === 'admin') setIsAdmin(true);
-      })
-      .catch(() => setIsAdmin(false));
-  }, [orgSlug]);
-
-  useEffect(() => {
     if (!orgSlug) {
       return;
     }
 
     let cancelled = false;
 
-    fetch(`/api/jobs?orgSlug=${encodeURIComponent(orgSlug)}`)
+    fetch(`/api/jobs?orgSlug=${encodeURIComponent(orgSlug)}&sync=false`)
       .then((res) => res.json().then((data) => ({ res, data })))
       .then(({ res, data }) => {
         if (cancelled) return;
@@ -141,16 +131,19 @@ export default function JobsListPage() {
         }
         if (data?.ok && Array.isArray(data.jobs)) {
           setJobs(data.jobs);
+          setIsAdmin(data.viewerRole === 'admin');
           setError(null);
           setCcWarning(typeof data.warning === 'string' ? data.warning : null);
         } else {
           setError('Invalid response');
+          setIsAdmin(false);
           setCcWarning(null);
         }
       })
       .catch((err) => {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load jobs');
+          setIsAdmin(false);
           setCcWarning(null);
         }
       })

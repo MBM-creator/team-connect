@@ -76,7 +76,7 @@ export default function NewJobPage() {
   useEffect(() => {
     if (!orgSlug) return;
     let cancelled = false;
-    fetch(`/api/jobs?orgSlug=${encodeURIComponent(orgSlug)}`)
+    fetch(`/api/jobs?orgSlug=${encodeURIComponent(orgSlug)}&sync=false`)
       .then((res) => res.json())
       .then((data: { ok?: boolean; jobs?: ExistingJob[] }) => {
         if (!cancelled && data?.ok && Array.isArray(data.jobs)) {
