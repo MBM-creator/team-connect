@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { DailyPlanPanel } from '@/components/DailyPlanPanel';
 import { DailySiteUpdatePanel } from '@/components/DailySiteUpdatePanel';
+import { STAGE_LABELS_ENABLED } from '@/lib/feature-flags';
 import { JobNotesEntryCard } from '@/components/JobNotesEntryCard';
 import { JobWorkspaceShell } from '@/components/JobWorkspaceShell';
 import type { CcProject } from '@/lib/cc-client';
@@ -154,7 +155,7 @@ export default function TodaysWorkPage() {
       isAdmin={isAdmin}
     >
       <div className="space-y-6">
-        {!job.active_stage_id && (
+        {STAGE_LABELS_ENABLED && !job.active_stage_id && (
           <div className="rounded-xl border border-sc-border bg-sc-surface p-4 shadow-[0_1px_2px_rgba(36,41,38,0.04)]">
             <p className="text-sc-text">No active stage set. Set the active stage on the job detail page.</p>
             <Link

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { STAGE_LABELS_ENABLED } from '@/lib/feature-flags';
 
 interface JobOverviewEntry {
   id: string;
@@ -108,9 +109,11 @@ export default function OverviewPage() {
                 className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm"
               >
                 <p className="font-medium text-gray-900">{job.name}</p>
-                <p className="mt-1 text-sm text-gray-600">
-                  {job.activeStageName ?? 'No active stage'}
-                </p>
+                {STAGE_LABELS_ENABLED && (
+                  <p className="mt-1 text-sm text-gray-600">
+                    {job.activeStageName ?? 'No active stage'}
+                  </p>
+                )}
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   {(() => {
                     const badge = qaBadge(job);

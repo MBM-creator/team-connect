@@ -7,7 +7,7 @@ import {
 import { formatCcStatusLabel, normaliseSearchText } from '@/lib/jobs-list';
 import { buildJobNotesHref } from '@/lib/job-notes-routes';
 import { todayReportDate } from '@/lib/report-date';
-import { QA_ENABLED } from '@/lib/feature-flags';
+import { QA_ENABLED, STAGE_LABELS_ENABLED } from '@/lib/feature-flags';
 
 export type JobWorkspaceJobInput = {
   id: string;
@@ -137,7 +137,7 @@ export function buildJobWorkspaceSummaryFields(input: {
   }
 
   const stage = input.activeStageName?.trim() || null;
-  if (stage) {
+  if (STAGE_LABELS_ENABLED && stage) {
     fields.push({ key: 'stage', label: 'Current stage', value: stage });
   }
 

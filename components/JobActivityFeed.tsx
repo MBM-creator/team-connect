@@ -16,6 +16,7 @@ import {
   JOB_NOTE_VIDEO_MIME_TYPES,
 } from '@/lib/job-notes';
 import { todayReportDate } from '@/lib/report-date';
+import { STAGE_LABELS_ENABLED } from '@/lib/feature-flags';
 
 interface StageOption {
   id: string;
@@ -506,7 +507,7 @@ export function JobActivityFeed({
       </div>
 
       <form onSubmit={handleSubmit} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-3">
-        {stages.length > 0 && (
+        {STAGE_LABELS_ENABLED && stages.length > 0 && (
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Stage</label>
             <select
@@ -698,12 +699,14 @@ export function JobActivityFeed({
                   <p className="text-sm font-medium text-gray-900">{note.author_name}</p>
                   <p className="text-xs text-gray-500">
                     {formatAustralianDateTime(note.created_at)}
-                    {note.stage_name ? ` · ${note.stage_name}` : ''}
+                    {STAGE_LABELS_ENABLED && note.stage_name ? ` · ${note.stage_name}` : ''}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    <span className="rounded-full bg-lime-50 px-2 py-0.5 text-[11px] font-medium text-lime-800 ring-1 ring-lime-200">
-                      {note.stage_name ? `Stage: ${note.stage_name}` : 'Job-wide'}
-                    </span>
+                    {STAGE_LABELS_ENABLED && (
+                      <span className="rounded-full bg-lime-50 px-2 py-0.5 text-[11px] font-medium text-lime-800 ring-1 ring-lime-200">
+                        {note.stage_name ? `Stage: ${note.stage_name}` : 'Job-wide'}
+                      </span>
+                    )}
                     <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200">
                       Date: {formatReportDate(note.report_date)}
                     </span>

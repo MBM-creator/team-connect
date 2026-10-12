@@ -13,6 +13,7 @@ import {
 } from '@/lib/daily-site-update-shared';
 import { DailyPlanReportSection } from '@/components/DailyPlanReportSection';
 import type { DailyPlanReportMatch } from '@/lib/daily-plan-report';
+import { STAGE_LABELS_ENABLED } from '@/lib/feature-flags';
 
 interface JobSummary {
   id: string;
@@ -305,7 +306,9 @@ export function DailySiteUpdatePanel({
       }
       setForm(EMPTY_FORM);
       setSubmitSuccess(
-        data.savedAtJobLevelOnly ? NO_ACTIVE_STAGE_WARNING : 'Daily site update submitted.'
+        STAGE_LABELS_ENABLED && data.savedAtJobLevelOnly
+          ? NO_ACTIVE_STAGE_WARNING
+          : 'Daily site update submitted.'
       );
       if (compactTaskMode) {
         setFormOpen(false);
@@ -427,19 +430,21 @@ export function DailySiteUpdatePanel({
                   className="mt-1"
                 />
 
-                {activeStage ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="text-sm font-medium text-sc-euca">{activeStage.name}</span>
-                    {activeStage.cc_section_trade && (
-                      <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                        {activeStage.cc_section_trade.replace(/_/g, ' ')}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                    {NO_ACTIVE_STAGE_WARNING}
-                  </div>
+                {STAGE_LABELS_ENABLED && (
+                  activeStage ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="text-sm font-medium text-sc-euca">{activeStage.name}</span>
+                      {activeStage.cc_section_trade && (
+                        <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                          {activeStage.cc_section_trade.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      {NO_ACTIVE_STAGE_WARNING}
+                    </div>
+                  )
                 )}
               </>
             )}
@@ -450,7 +455,7 @@ export function DailySiteUpdatePanel({
                   Progress context
                 </p>
                 <p className="mt-1 text-xs text-gray-500">
-                  Read-only labour budget context from this stage. Actual time tracking is not integrated yet.
+                  Read-only labour budget context. Actual time tracking is not integrated yet.
                 </p>
                 <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
                   <div>

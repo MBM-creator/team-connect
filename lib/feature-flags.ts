@@ -10,3 +10,9 @@ export const QA_ENABLED: boolean = false;
  * stage-management requests.
  */
 export const JOB_STAGES_SECTION_ENABLED: boolean = false;
+
+/**
+ * Stage data remains available to existing workflows while stage headings,
+ * selectors and names stay hidden throughout the Team Connect interface.
+ */
+export const STAGE_LABELS_ENABLED: boolean = false;

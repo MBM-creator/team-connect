@@ -162,7 +162,7 @@ describe('job workspace — display hierarchy', () => {
 });
 
 describe('job workspace — summary fields', () => {
-  it('includes address, formatted phone, and stage when available', () => {
+  it('includes address and formatted phone while stage labels are hidden', () => {
     const fields = buildJobWorkspaceSummaryFields({
       job: makeJob({ id: 'job-1', name: 'Job' }),
       project: makeProject({
@@ -174,12 +174,12 @@ describe('job workspace — summary fields', () => {
       activeStageName: 'Fencing',
     });
 
-    expect(fields.map((f) => f.key)).toEqual(['address', 'phone', 'stage']);
+    expect(fields.map((f) => f.key)).toEqual(['address', 'phone']);
     expect(fields.find((f) => f.key === 'phone')).toMatchObject({
       value: '0409 123 456',
       telHref: '0409123456',
     });
-    expect(fields.find((f) => f.key === 'stage')?.value).toBe('Fencing');
+    expect(fields.find((f) => f.key === 'stage')).toBeUndefined();
   });
 
   it('omits missing optional fields without placeholders', () => {
