@@ -42,6 +42,7 @@ export const CLIENT_CONNECT_STATUS_ORDER: Record<string, number> = {
   paid: 9,
 };
 
+// Display filters only: lifecycle values continue to come from Client Connect.
 export const DEFAULT_JOBS_STATUS_FILTER = 'wip';
 export const ADMIN_JOBS_STATUS_FILTERS = ['completed', 'invoiced', 'paid'] as const;
 
