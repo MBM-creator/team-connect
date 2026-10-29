@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { formatAustralianDateTime } from '@/lib/australian-date';
 import type { DailySiteUpdateApiRow, OnTrackStatus } from '@/lib/daily-site-update-shared';
+import { STAGE_LABELS_ENABLED } from '@/lib/feature-flags';
 
 interface DailySiteUpdateHistoryProps {
   orgSlug: string;
@@ -172,7 +173,11 @@ export function DailySiteUpdateHistory({
                 <p className="text-sm font-medium text-gray-900">{update.authorName}</p>
                 <p className="text-xs text-gray-500">
                   {update.reportDate}
-                  {update.stageName ? ` · ${update.stageName}` : ' · Job level'}
+                  {STAGE_LABELS_ENABLED
+                    ? update.stageName
+                      ? ` · ${update.stageName}`
+                      : ' · Job level'
+                    : ''}
                   {' · '}
                   {formatAustralianDateTime(update.submittedAt)}
                 </p>

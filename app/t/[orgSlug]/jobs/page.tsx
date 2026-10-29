@@ -15,6 +15,7 @@ import {
 import {
   buildJobListRowModel,
   clearJobsListFilters,
+  defaultJobsStatusFilter,
   filterJobsByTab,
   hasActiveJobsListFilters,
   jobMatchesSearch,
@@ -105,6 +106,7 @@ export default function JobsListPage() {
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [ccProjects, setCcProjects] = useState<CcProject[]>([]);
+  const [ccLoading, setCcLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ccWarning, setCcWarning] = useState<string | null>(null);
@@ -112,17 +114,7 @@ export default function JobsListPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [tab, setTab] = useState<JobsListTab>('active');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-
-  useEffect(() => {
-    if (!orgSlug) return;
-    fetch(`/api/auth/me?orgSlug=${encodeURIComponent(orgSlug)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.ok && data?.staff?.role === 'admin') setIsAdmin(true);
-      })
-      .catch(() => setIsAdmin(false));
-  }, [orgSlug]);
+  const [statusFilter, setStatusFilter] = useState(() => defaultJobsStatusFilter('active'));
 
   useEffect(() => {
     if (!orgSlug) {
@@ -131,7 +123,7 @@ export default function JobsListPage() {
 
     let cancelled = false;
 
-    fetch(`/api/jobs?orgSlug=${encodeURIComponent(orgSlug)}`)
+    fetch(`/api/jobs?orgSlug=${encodeURIComponent(orgSlug)}&sync=false`)
       .then((res) => res.json().then((data) => ({ res, data })))
       .then(({ res, data }) => {
         if (cancelled) return;
@@ -141,16 +133,19 @@ export default function JobsListPage() {
         }
         if (data?.ok && Array.isArray(data.jobs)) {
           setJobs(data.jobs);
+          setIsAdmin(data.viewerRole === 'admin');
           setError(null);
           setCcWarning(typeof data.warning === 'string' ? data.warning : null);
         } else {
           setError('Invalid response');
+          setIsAdmin(false);
           setCcWarning(null);
         }
       })
       .catch((err) => {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load jobs');
+          setIsAdmin(false);
           setCcWarning(null);
         }
       })
@@ -164,9 +159,13 @@ export default function JobsListPage() {
   }, [orgSlug]);
 
   useEffect(() => {
-    if (!orgSlug) return;
+    if (!orgSlug) {
+      setCcLoading(false);
+      return;
+    }
 
     let cancelled = false;
+    setCcLoading(true);
     fetch(`/api/cc/projects?orgSlug=${encodeURIComponent(orgSlug)}`)
       .then((res) => res.json())
       .then((data: { ok?: boolean; projects?: CcProject[]; ccUnavailable?: boolean }) => {
@@ -178,6 +177,9 @@ export default function JobsListPage() {
       })
       .catch(() => {
         if (!cancelled) setCcProjects([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCcLoading(false);
       });
 
     return () => {
@@ -187,7 +189,7 @@ export default function JobsListPage() {
 
   // Reset status filter when switching tabs — options are tab-scoped.
   useEffect(() => {
-    setStatusFilter('');
+    setStatusFilter(defaultJobsStatusFilter(tab));
   }, [tab]);
 
   const ccProjectForJob = useCallback(
@@ -313,8 +315,8 @@ export default function JobsListPage() {
       ...tabJobs.map((job) => ccProjectForJob(job)?.status),
       ...tabProjects.map((project) => project.status),
     ];
-    return statusOptionsForTab(statuses);
-  }, [tabJobs, tabProjects, ccProjectForJob]);
+    return statusOptionsForTab(statuses, isAdmin);
+  }, [tabJobs, tabProjects, ccProjectForJob, isAdmin]);
 
   const filteredJobs = useMemo(() => {
     return tabJobs.filter((job) => {
@@ -331,12 +333,13 @@ export default function JobsListPage() {
     });
   }, [tabProjects, searchQuery, statusFilter]);
 
-  const filtersActive = hasActiveJobsListFilters(searchQuery, statusFilter);
+  const filtersActive = hasActiveJobsListFilters(searchQuery, statusFilter, tab);
   const hasAnyInTab = tabJobs.length > 0 || tabProjects.length > 0;
   const hasVisibleResults = filteredJobs.length > 0 || filteredProjects.length > 0;
+  const waitingForStatus = ccLoading && Boolean(statusFilter);
 
   function clearFilters() {
-    const cleared = clearJobsListFilters();
+    const cleared = clearJobsListFilters(tab);
     setSearchQuery(cleared.searchQuery);
     setStatusFilter(cleared.statusFilter);
   }
@@ -496,15 +499,19 @@ export default function JobsListPage() {
           </div>
         )}
 
-        {loading && <p className="text-sm text-sc-text-secondary">Loading jobs…</p>}
+        {(loading || waitingForStatus) && (
+          <p className="text-sm text-sc-text-secondary">
+            {waitingForStatus ? 'Loading matching jobs…' : 'Loading jobs…'}
+          </p>
+        )}
 
-        {!loading && !error && !hasAnyInTab && (
+        {!loading && !waitingForStatus && !error && !hasAnyInTab && (
           <div className="rounded-xl border border-sc-border bg-sc-surface px-4 py-6 text-sm text-sc-text-secondary">
             {tab === 'active' ? 'No active jobs yet.' : 'No completed jobs.'}
           </div>
         )}
 
-        {!loading && !error && hasAnyInTab && !hasVisibleResults && (
+        {!loading && !waitingForStatus && !error && hasAnyInTab && !hasVisibleResults && (
           <div className="rounded-xl border border-sc-border bg-sc-surface px-4 py-6 text-sm text-sc-text-secondary">
             <p>No jobs match your search.</p>
             {filtersActive && (
@@ -519,7 +526,7 @@ export default function JobsListPage() {
           </div>
         )}
 
-        {!loading && !error && hasVisibleResults && (
+        {!loading && !waitingForStatus && !error && hasVisibleResults && (
           <ul className="flex flex-col gap-2.5">
             {filteredJobs.map((job) => {
               const row = buildJobListRowModel(job, orgSlug, ccProjectForJob(job));

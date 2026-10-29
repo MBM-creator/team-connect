@@ -72,7 +72,7 @@ describe('Client Connect job operations preserve stages without importing sectio
   });
 
   it.each([false, true])('refreshes jobs (existing=%s) without touching stages or active stage', async (existing) => {
-    queueQuery('organisations', { id: ORG_ID });
+    // GET uses the organisation already resolved by guardStaffApi.
     queueQuery('jobs', existing ? [job] : []);
     const write = queueQuery('jobs', { ...job, active_stage_id: existing ? STAGE_ID : null });
     const { GET } = await import('./route');
@@ -81,7 +81,7 @@ describe('Client Connect job operations preserve stages without importing sectio
     expect((await response.json()).jobs[0].active_stage_id).toBe(existing ? STAGE_ID : null);
     expect(existing ? write.update : write.insert).toHaveBeenCalledWith(expect.objectContaining({ cc_project_id: PROJECT_ID }));
     expect((existing ? write.update : write.insert).mock.calls[0][0]).not.toHaveProperty('active_stage_id');
-    expect(mocks.from.mock.calls.map(([table]) => table)).toEqual(['organisations', 'jobs', 'jobs']);
+    expect(mocks.from.mock.calls.map(([table]) => table)).toEqual(['jobs', 'jobs']);
   });
 
   it('creates a linked job with sections but no imported stages', async () => {

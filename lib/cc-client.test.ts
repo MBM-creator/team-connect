@@ -88,6 +88,21 @@ describe('fetchCcProjects', () => {
     expect(projects[0].trades).toEqual(['fencing']);
   });
 
+  it.each(['completed', 'invoiced', 'paid'] as const)(
+    'accepts the Client Connect %s project status',
+    async (status) => {
+      vi.mocked(fetch).mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ok: true, projects: [upstreamProject({ status })] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+      const projects = await fetchCcProjects(ORG_A, `req-${status}`);
+      expect(projects[0]?.status).toBe(status);
+    }
+  );
+
   it('scopes cache by organisation id and does not cross-serve', async () => {
     const fetchMock = vi.mocked(fetch);
     await fetchCcProjects(ORG_A, 'req-a');

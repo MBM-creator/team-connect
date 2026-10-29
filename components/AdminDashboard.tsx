@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatAustralianDateTime } from '@/lib/australian-date';
+import { STAGE_LABELS_ENABLED } from '@/lib/feature-flags';
 import type {
   ActivityFeedItem,
   AdminDashboardData,
@@ -279,7 +280,7 @@ export function AdminDashboard({ orgSlug }: { orgSlug: string }) {
                   <tr>
                     <th className="px-4 py-3">Job</th>
                     <th className="px-4 py-3">QA type</th>
-                    <th className="px-4 py-3">Stage</th>
+                    {STAGE_LABELS_ENABLED && <th className="px-4 py-3">Stage</th>}
                     <th className="px-4 py-3">Urgency</th>
                     <th className="px-4 py-3">Section</th>
                     <th className="px-4 py-3">Issues</th>
@@ -296,7 +297,9 @@ export function AdminDashboard({ orgSlug }: { orgSlug: string }) {
                         {row.clientName && <div className="text-xs text-gray-500">{row.clientName}</div>}
                       </td>
                       <td className="px-4 py-3">{row.qaTypeLabel}</td>
-                      <td className="px-4 py-3">{row.activeStageName ?? '—'}</td>
+                      {STAGE_LABELS_ENABLED && (
+                        <td className="px-4 py-3">{row.activeStageName ?? '—'}</td>
+                      )}
                       <td className="px-4 py-3">
                         <span className="text-xs font-medium text-gray-800">{row.urgencyLabel}</span>
                       </td>

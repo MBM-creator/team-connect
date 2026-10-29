@@ -7,7 +7,10 @@ export type CcProjectStatus =
   | 'deposit_paid'
   | 'prestart_date_set'
   | 'prestart_paid'
-  | 'wip';
+  | 'wip'
+  | 'completed'
+  | 'invoiced'
+  | 'paid';
 export type CcProjectTrade =
   | 'paving'
   | 'concrete'
@@ -92,7 +95,10 @@ function isCcProjectStatus(value: unknown): value is CcProjectStatus {
     value === 'deposit_paid' ||
     value === 'prestart_date_set' ||
     value === 'prestart_paid' ||
-    value === 'wip'
+    value === 'wip' ||
+    value === 'completed' ||
+    value === 'invoiced' ||
+    value === 'paid'
   );
 }
 

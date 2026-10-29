@@ -14,11 +14,14 @@
     "seed-admin-user": "tsx scripts/seed-admin-user.ts",
     "seed-pilot-workflow": "tsx scripts/seed-pilot-workflow.ts"
   },
+  "engines": {
+    "node": "24.x"
+  },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.96.0",
     "browser-image-compression": "^2.0.2",
-    "next": "^16.2.6",
+    "next": "16.3.8",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.9.2",
@@ -26,12 +29,12 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",

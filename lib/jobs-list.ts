@@ -37,13 +37,20 @@ export const CLIENT_CONNECT_STATUS_ORDER: Record<string, number> = {
   quote_accepted: 4,
   active: 5,
   planning: 6,
+  completed: 7,
+  invoiced: 8,
+  paid: 9,
 };
+
+// Display filters only: lifecycle values continue to come from Client Connect.
+export const DEFAULT_JOBS_STATUS_FILTER = 'wip';
+export const ADMIN_JOBS_STATUS_FILTERS = ['completed', 'invoiced', 'paid'] as const;
 
 /**
  * Active / Completed mapping for the Jobs list.
  *
- * There is no job.status column. CcProjectStatus values are all pipeline stages
- * (planning → wip). The only job-level "done" signal is hidden_from_qa_at
+ * There is no job.status column. Client Connect remains the source of truth for
+ * lifecycle statuses. The only Team Connect job-level "done" signal is hidden_from_qa_at
  * (soft-hide from QA). Note: GET /api/jobs currently filters those rows out, so
  * the Completed tab is empty until that API surface changes.
  */
@@ -121,12 +128,21 @@ export function statusRank(status: string | null | undefined): number {
 
 /** Statuses present in the current tab, ordered by established CC priority. */
 export function statusOptionsForTab(
-  statuses: Array<string | null | undefined>
+  statuses: Array<string | null | undefined>,
+  includeAdminStatuses = false
 ): Array<{ value: string; label: string }> {
-  const unique = new Set<string>();
+  const unique = new Set<string>([DEFAULT_JOBS_STATUS_FILTER]);
+  if (includeAdminStatuses) {
+    for (const status of ADMIN_JOBS_STATUS_FILTERS) unique.add(status);
+  }
   for (const status of statuses) {
     const trimmed = status?.trim();
-    if (trimmed) unique.add(trimmed);
+    if (
+      trimmed &&
+      (includeAdminStatuses || !ADMIN_JOBS_STATUS_FILTERS.includes(trimmed as (typeof ADMIN_JOBS_STATUS_FILTERS)[number]))
+    ) {
+      unique.add(trimmed);
+    }
   }
   return Array.from(unique)
     .sort((a, b) => {
@@ -176,12 +192,20 @@ export function buildJobListRowModel(
   };
 }
 
-export function clearJobsListFilters(): { searchQuery: string; statusFilter: string } {
-  return { searchQuery: '', statusFilter: '' };
+export function defaultJobsStatusFilter(tab: JobsListTab): string {
+  return tab === 'active' ? DEFAULT_JOBS_STATUS_FILTER : '';
 }
 
-export function hasActiveJobsListFilters(searchQuery: string, statusFilter: string): boolean {
-  return Boolean(searchQuery.trim() || statusFilter);
+export function clearJobsListFilters(tab: JobsListTab = 'active'): { searchQuery: string; statusFilter: string } {
+  return { searchQuery: '', statusFilter: defaultJobsStatusFilter(tab) };
+}
+
+export function hasActiveJobsListFilters(
+  searchQuery: string,
+  statusFilter: string,
+  tab: JobsListTab = 'active'
+): boolean {
+  return Boolean(searchQuery.trim() || statusFilter !== defaultJobsStatusFilter(tab));
 }
 
 /** Type-safe known CC statuses for reference; options are still derived from data. */
@@ -193,6 +217,9 @@ export const KNOWN_CC_PROJECT_STATUSES: CcProjectStatus[] = [
   'prestart_date_set',
   'prestart_paid',
   'wip',
+  'completed',
+  'invoiced',
+  'paid',
 ];
 
 /**

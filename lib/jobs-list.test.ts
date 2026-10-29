@@ -3,6 +3,7 @@ import type { CcProject } from '@/lib/cc-client';
 import {
   buildJobListRowModel,
   clearJobsListFilters,
+  defaultJobsStatusFilter,
   filterJobsByTab,
   formatCcStatusLabel,
   hasActiveJobsListFilters,
@@ -140,11 +141,21 @@ describe('jobs list — search', () => {
 });
 
 describe('jobs list — status filter with tab', () => {
-  it('derives status options from statuses present in the current tab', () => {
+  it('includes WIP by default and derives other options from the current tab', () => {
     const options = statusOptionsForTab(['wip', 'deposit_paid', 'wip', null, '']);
     expect(options.map((o) => o.value)).toEqual(['wip', 'deposit_paid']);
     expect(options[0].label).toBe('WIP');
     expect(options[1].label).toBe('Deposit paid');
+  });
+
+  it('adds completed, invoiced and paid options only for admins', () => {
+    expect(statusOptionsForTab(['completed', 'invoiced', 'paid'], false).map((option) => option.value)).toEqual(['wip']);
+    expect(statusOptionsForTab([], true).map((option) => option.value)).toEqual([
+      'wip',
+      'completed',
+      'invoiced',
+      'paid',
+    ]);
   });
 
   it('filters by selected status and allows all statuses', () => {
@@ -210,10 +221,14 @@ describe('jobs list — optional fields and navigation', () => {
 });
 
 describe('jobs list — clear filters', () => {
-  it('clearing filters restores empty search and all-status selection', () => {
-    expect(hasActiveJobsListFilters('essendon', 'wip')).toBe(true);
-    expect(hasActiveJobsListFilters('', '')).toBe(false);
-    expect(clearJobsListFilters()).toEqual({ searchQuery: '', statusFilter: '' });
+  it('defaults and clears the Active tab to WIP', () => {
+    expect(defaultJobsStatusFilter('active')).toBe('wip');
+    expect(defaultJobsStatusFilter('completed')).toBe('');
+    expect(hasActiveJobsListFilters('', 'wip', 'active')).toBe(false);
+    expect(hasActiveJobsListFilters('', '', 'active')).toBe(true);
+    expect(hasActiveJobsListFilters('essendon', 'wip', 'active')).toBe(true);
+    expect(clearJobsListFilters('active')).toEqual({ searchQuery: '', statusFilter: 'wip' });
+    expect(clearJobsListFilters('completed')).toEqual({ searchQuery: '', statusFilter: '' });
   });
 
   it('after clear, all tab jobs match again', () => {
@@ -229,7 +244,7 @@ describe('jobs list — clear filters', () => {
         site_location: 'Brunswick',
       }),
     ];
-    const cleared = clearJobsListFilters();
+    const cleared = clearJobsListFilters('active');
     const restored = filterJobsByTab(jobs, 'active').filter((job) =>
       jobMatchesSearch(job, cleared.searchQuery, null)
     );
