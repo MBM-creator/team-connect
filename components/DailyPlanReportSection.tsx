@@ -20,6 +20,7 @@ import type {
   DailyPlanReportSummary,
 } from '@/lib/daily-plan-report';
 import type { DailySiteUpdateApiRow } from '@/lib/daily-site-update-shared';
+import { resolveDailyReportValues, type DailyReportFormValues } from '@/lib/daily-report-form-values';
 import { nextMelbourneWorkDate } from '@/lib/daily-plan-carry-forward-suggestions';
 
 type CarryForwardFormRow = Record<
@@ -32,17 +33,8 @@ type DailyPlanReportSectionProps = {
   jobId: string;
   reportDate: string;
   /** Mid-day DSU form values reused for day completion. */
-  formValues: {
-    progressToday: string;
-    issuesFaced: string;
-    issuesFacedNone: boolean;
-    problemsResolved: string;
-    problemsResolvedNone: boolean;
-    preventionPlan: string;
-    preventionPlanNone: boolean;
-    onTrackStatus: string;
-    onTrackNotes: string;
-  };
+  formValues: DailyReportFormValues;
+  latestSubmittedUpdate: DailySiteUpdateApiRow | null;
   canCompleteDay: boolean;
   onPlanCompleted: (plan: DailyPlanApi | null) => void;
 };
@@ -67,6 +59,7 @@ export function DailyPlanReportSection({
   jobId,
   reportDate,
   formValues,
+  latestSubmittedUpdate,
   canCompleteDay,
   onPlanCompleted,
 }: DailyPlanReportSectionProps) {
@@ -157,6 +150,10 @@ export function DailyPlanReportSection({
     [summary?.carryForwardEligible]
   );
 
+  const reportValues = resolveDailyReportValues({
+    formValues, draft, latestSubmittedUpdate, jobId, reportDate,
+  });
+
   function buildCarryForwardPayload() {
     return eligible.map((item) => {
       const key = `${item.source}:${item.id}`;
@@ -182,7 +179,7 @@ export function DailyPlanReportSection({
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ...formValues,
+            ...reportValues.values,
             reportDate,
             notesForTomorrow,
             carryForwards: buildCarryForwardPayload(),
@@ -214,7 +211,7 @@ export function DailyPlanReportSection({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ...formValues,
+            ...reportValues.values,
             reportDate,
             notesForTomorrow,
             carryForwards: buildCarryForwardPayload(),
@@ -480,6 +477,21 @@ export function DailyPlanReportSection({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {!isCompleted && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+          <p className="font-medium">Progress for this report</p>
+          <p className="mt-1 whitespace-pre-wrap">
+            {reportValues.values.progressToday || 'Add progress in the daily site update form above before saving or completing this report.'}
+          </p>
+          {reportValues.source !== 'form' && (
+            <p className="mt-2 text-xs text-gray-600">
+              {reportValues.source === 'draft' ? 'Using the saved day-completion draft.' : 'Using the latest submitted daily site update for this date.'}
+              {' '}To change it, enter revised progress in the daily site update form above.
+            </p>
+          )}
         </div>
       )}
 

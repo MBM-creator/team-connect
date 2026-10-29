@@ -663,6 +663,7 @@ export function DailySiteUpdatePanel({
             jobId={jobId}
             reportDate={bundle.reportDate}
             formValues={form}
+            latestSubmittedUpdate={latestToday}
             canCompleteDay
             onPlanCompleted={() => {
               void refresh();
