@@ -158,6 +158,22 @@ export async function PATCH(request: NextRequest) {
     updates.active = active;
   }
 
+  const requestedActive = body.active != null ? Boolean(body.active) : null;
+
+  if (requestedActive != null && requestedActive !== existing.active) {
+    const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+      ban_duration: requestedActive ? 'none' : '876000h',
+    });
+
+    if (authUpdateError) {
+      console.error('[admin/staff PATCH] auth update', normalizeSupabaseError(authUpdateError));
+      return NextResponse.json(
+        { ok: false, message: requestedActive ? 'Failed to reactivate sign-in access' : 'Failed to revoke sign-in access' },
+        { status: 502 }
+      );
+    }
+  }
+
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('staff_profiles')
     .update(updates)
@@ -167,6 +183,15 @@ export async function PATCH(request: NextRequest) {
     .single();
 
   if (updateError || !updated) {
+    if (requestedActive != null && requestedActive !== existing.active) {
+      const { error: rollbackError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+        ban_duration: existing.active ? 'none' : '876000h',
+      });
+      if (rollbackError) {
+        console.error('[admin/staff PATCH] auth rollback', normalizeSupabaseError(rollbackError));
+      }
+    }
+
     console.error('[admin/staff PATCH]', normalizeSupabaseError(updateError));
     return NextResponse.json({ ok: false, message: 'Failed to update staff' }, { status: 500 });
   }
