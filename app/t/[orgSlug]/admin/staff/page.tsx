@@ -227,7 +227,7 @@ export default function AdminStaffPage() {
                         onClick={() => patchStaff(s.id, { active: !s.active })}
                         title={isLastActiveAdmin ? 'Cannot deactivate the last active admin' : undefined}
                       >
-                        {s.active ? 'Deactivate' : 'Activate'}
+                        {s.active ? 'Deactivate' : 'Reactivate'}
                       </button>
                     </div>
                   </div>
