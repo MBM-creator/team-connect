@@ -261,3 +261,21 @@ Daily Plan / Team Connect operational schema is defined in `supabase/migrations/
 ## Future Integration
 
 This app is designed to be minimal and clean so it can later be folded into Client Connect.
+# Morning tools and notes email
+
+Team Connect emails each daily plan's creator at their active staff-profile email address
+at 06:15 Monday–Saturday in Australia/Melbourne. The email contains their equipment,
+materials and plan notes for that work date, plus their submitted notes for tomorrow
+from the previous working day (Saturday for Monday). Empty lists, completed plans,
+hidden jobs, inactive users and cross-organisation authors are excluded.
+
+Apply the `morning_checklist_email` migration before deploying. Set `CRON_SECRET`
+in production; the existing `RESEND_API_KEY` and verified `RESEND_FROM_EMAIL` are reused.
+The protected `/api/cron/morning-checklists` endpoint uses the production app origin.
+Vercel invokes it at both potential UTC offsets; the Melbourne time guard selects the
+correct offset and excludes Sundays. A 06:25 invocation retries failures. A durable
+email snapshot, atomic delivery claim and Resend idempotency key prevent duplicate
+emails during concurrency or recovery. Pending/failed snapshots are retried unchanged
+only within 23 hours, inside Resend's 24-hour idempotency window. Preview deployments
+never send. Inspect `morning_checklist_emails` for `sent`/`failed` and provider message
+IDs; `sent` means accepted by Resend, not a guarantee of inbox delivery.
