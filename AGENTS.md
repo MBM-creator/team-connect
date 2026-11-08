@@ -4,6 +4,12 @@ Repo: MBM-creator/team-connect
 Local path: /Users/Steve/team-connect
 Purpose: QA / daily reports app for Made By Mobbs.
 
+Morning checklist reminders (Steve, 9 November 2026):
+- Email at 06:15 Monday–Saturday, Australia/Melbourne (including daylight saving).
+- Address each list to its creator's active Team Connect staff email, not a fixed owner address.
+- Include the actual equipment/materials list and relevant notes. No SMS implementation.
+- Use the existing Resend service, authenticated cron, durable delivery snapshots and duplicate protection.
+
 Important rule:
 - This is Team Connect, the QA/daily-report app.
 - Do not implement QA/daily-report features in /Users/Steve/the-portal-mvp unless explicitly asked.
