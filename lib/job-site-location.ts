@@ -1,3 +1,4 @@
+import { canonicalJobNumber } from '@/lib/job-number';
 import type { CcProject } from '@/lib/cc-client';
 import { clientFacingDetails, siteLocationForList } from '@/lib/cc-client-display';
 
@@ -5,6 +6,8 @@ export type JobSiteLocationSource = {
   id: string;
   name: string;
   cc_project_id?: string | null;
+  cc_quote_id?: string | null;
+  cc_job_number?: string | null;
   cc_project_title_snapshot?: string | null;
   cc_client_name_snapshot?: string | null;
   cc_site_address_snapshot?: string | null;
@@ -12,6 +15,7 @@ export type JobSiteLocationSource = {
 
 export type JobWithSiteLocation<T extends JobSiteLocationSource> = T & {
   site_location: string | null;
+  cc_job_number: string | null;
 };
 
 function normaliseTitle(value: string | null | undefined): string {
@@ -51,5 +55,8 @@ export function enrichJobsWithSiteLocation<T extends JobSiteLocationSource>(
   return jobs.map((job) => ({
     ...job,
     site_location: jobSiteLocation(job, projects),
+    cc_job_number: canonicalJobNumber(job, projects.find((p) =>
+      p.project_id === job.cc_project_id || Boolean(job.cc_quote_id && p.quote_id === job.cc_quote_id)
+    )),
   }));
 }

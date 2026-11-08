@@ -1,3 +1,4 @@
+import { canonicalJobNumber } from '@/lib/job-number';
 import type { CcProject, CcProjectStatus } from '@/lib/cc-client';
 import { clientFacingDetails, siteLocationForList } from '@/lib/cc-client-display';
 
@@ -10,6 +11,8 @@ export type JobsListJob = {
   site_id: string | null;
   created_at: string;
   cc_project_id?: string | null;
+  cc_quote_id?: string | null;
+  cc_job_number?: string | null;
   cc_client_id?: string | null;
   cc_project_title_snapshot?: string | null;
   cc_client_name_snapshot?: string | null;
@@ -22,6 +25,7 @@ export type JobsListJob = {
 export type JobListRowModel = {
   id: string;
   clientName: string;
+  jobNumber: string | null;
   projectTitle: string | null;
   location: string | null;
   phone: string | null;
@@ -68,7 +72,7 @@ export function normaliseSearchText(value: string | null | undefined): string {
 
 export function jobSearchHaystack(
   job: JobsListJob,
-  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title'> | null
+  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'project_id' | 'quote_id' | 'cc_job_number'> | null
 ): string {
   const details = clientFacingDetails({
     project,
@@ -78,6 +82,7 @@ export function jobSearchHaystack(
     jobName: job.name,
   });
   const parts = [
+    canonicalJobNumber(job, project),
     details.name,
     job.cc_project_title_snapshot,
     job.name,
@@ -92,7 +97,7 @@ export function jobSearchHaystack(
 export function jobMatchesSearch(
   job: JobsListJob,
   query: string,
-  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title'> | null
+  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'project_id' | 'quote_id' | 'cc_job_number'> | null
 ): boolean {
   const needle = normaliseSearchText(query);
   if (!needle) return true;
@@ -103,7 +108,7 @@ export function projectMatchesSearch(project: CcProject, query: string): boolean
   const needle = normaliseSearchText(query);
   if (!needle) return true;
   const haystack = normaliseSearchText(
-    [project.client_name, project.project_title, project.site_address, siteLocationForList(project.site_address)]
+    [project.cc_job_number, project.client_name, project.project_title, project.site_address, siteLocationForList(project.site_address)]
       .filter(Boolean)
       .join(' ')
   );
@@ -164,7 +169,7 @@ export function jobMatchesStatusFilter(
 export function buildJobListRowModel(
   job: JobsListJob,
   orgSlug: string,
-  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'status'> | null
+  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'project_id' | 'quote_id' | 'cc_job_number' | 'status'> | null
 ): JobListRowModel {
   const details = clientFacingDetails({
     project,
@@ -184,6 +189,7 @@ export function buildJobListRowModel(
   return {
     id: job.id,
     clientName: details.name,
+    jobNumber: canonicalJobNumber(job, project),
     projectTitle: showTitle,
     location: job.site_location ?? siteLocationForList(details.address),
     phone: details.phone,

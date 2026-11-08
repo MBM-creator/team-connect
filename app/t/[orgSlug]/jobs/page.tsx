@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { jobNumberLabel } from '@/lib/job-number';
 import { useParams, useRouter } from 'next/navigation';
 import { AppBrandMark } from '@/components/AppBrandMark';
 import { LifecycleStatusChip } from '@/components/LifecycleStatusChip';
@@ -538,6 +539,7 @@ export default function JobsListPage() {
                         <p className="truncate text-[17px] font-semibold leading-snug text-sc-charcoal">
                           {row.clientName}
                         </p>
+                        <span className="text-sm font-medium tabular-nums">{jobNumberLabel(row.jobNumber)}</span>
                         <LifecycleStatusChip status={row.status} />
                       </div>
                       {row.projectTitle && (
@@ -576,6 +578,7 @@ export default function JobsListPage() {
                         <p className="truncate text-[17px] font-semibold leading-snug text-sc-charcoal">
                           {clientName}
                         </p>
+                        <span className="text-sm font-medium tabular-nums">{jobNumberLabel(project.cc_job_number)}</span>
                         <LifecycleStatusChip status={project.status} />
                       </div>
                       {title && (
