@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { jobNumberLabel } from '@/lib/job-number';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -17,6 +18,7 @@ import { isValidReportDate, todayReportDate } from '@/lib/report-date';
 interface Job {
   id: string;
   name: string;
+  cc_job_number?: string | null;
 }
 
 export default function DailyPlanPage() {
@@ -336,7 +338,7 @@ export default function DailyPlanPage() {
                     ? 'Edit Daily Plan'
                     : 'Create Daily Plan'}
               </h1>
-              <p className="mt-1 text-gray-600">{job.name}</p>
+              <p className="mt-1 text-gray-600">{jobNumberLabel(job.cc_job_number)} · {job.name}</p>
             </div>
 
             {(isActiveLocked || isCompletedLocked) && plan ? (

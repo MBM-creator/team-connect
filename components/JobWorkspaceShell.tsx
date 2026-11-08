@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { jobNumberLabel } from '@/lib/job-number';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { AppBrandMark } from '@/components/AppBrandMark';
@@ -25,7 +26,7 @@ type JobWorkspaceShellProps = {
   job: JobWorkspaceJobInput;
   project?: Pick<
     CcProject,
-    'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'status'
+    'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'status' | 'project_id' | 'quote_id' | 'cc_job_number'
   > | null;
   activeStageName?: string | null;
   /** When true, show Admin / Site Operations links like the Jobs page header. */
@@ -104,8 +105,7 @@ export function JobWorkspaceShell({
             <LifecycleStatusChip status={identity.lifecycleStatus} className="mt-1.5" />
           </div>
 
-          {(identity.supportingClientName || identity.suburb || identity.jobReference || healthLabel) && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-sc-text-secondary">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-sc-text-secondary">
               {identity.supportingClientName && (
                 <span className="min-w-0 break-words text-sc-text">{identity.supportingClientName}</span>
               )}
@@ -115,16 +115,14 @@ export function JobWorkspaceShell({
                 </span>
               )}
               {identity.suburb && <span className="min-w-0 break-words">{identity.suburb}</span>}
-              {identity.jobReference && (
-                <>
+              <>
                   {(identity.supportingClientName || identity.suburb) && (
                     <span className="text-sc-text-secondary/45" aria-hidden="true">
                       ·
                     </span>
                   )}
-                  <span className="tabular-nums">{identity.jobReference}</span>
-                </>
-              )}
+                  <span className="tabular-nums">{jobNumberLabel(identity.jobReference)}</span>
+              </>
               {healthLabel && (
                 <span
                   className="inline-flex items-center rounded-md border border-sc-warn-border bg-sc-warn-tint px-2 py-0.5 text-xs font-medium text-sc-warn"
@@ -133,8 +131,7 @@ export function JobWorkspaceShell({
                   {healthLabel}
                 </span>
               )}
-            </div>
-          )}
+          </div>
         </div>
 
         {summaryFields.length > 0 && (

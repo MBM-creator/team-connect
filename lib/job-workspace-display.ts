@@ -1,3 +1,4 @@
+import { canonicalJobNumber } from '@/lib/job-number';
 import type { CcProject } from '@/lib/cc-client';
 import {
   clientFacingDetails,
@@ -13,6 +14,7 @@ export type JobWorkspaceJobInput = {
   id: string;
   name: string;
   cc_project_id?: string | null;
+  cc_quote_id?: string | null;
   cc_project_title_snapshot?: string | null;
   cc_client_name_snapshot?: string | null;
   cc_site_address_snapshot?: string | null;
@@ -68,7 +70,7 @@ export function buildJobWorkspaceIdentityModel(input: {
   job: JobWorkspaceJobInput;
   project?: Pick<
     CcProject,
-    'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'status'
+    'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'status' | 'project_id' | 'quote_id' | 'cc_job_number'
   > | null;
 }): JobWorkspaceIdentityModel {
   const { job, project = null } = input;
@@ -102,7 +104,7 @@ export function buildJobWorkspaceIdentityModel(input: {
     suburb: siteLocationForList(details.address),
     lifecycleStatus,
     lifecycleStatusLabel: formatCcStatusLabel(lifecycleStatus),
-    jobReference: job.cc_job_number?.trim() || null,
+    jobReference: canonicalJobNumber(job, project),
   };
 }
 

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { guardStaffApi } from '@/lib/guard-staff-api';
 import { randomUUID } from 'crypto';
+import { fetchCcProjects } from '@/lib/cc-client';
+import { isCcIntegrationOrgAllowed } from '@/lib/cc-integration-access';
+import { enrichJobsWithSiteLocation } from '@/lib/job-site-location';
 
 export const runtime = 'nodejs';
 
@@ -130,7 +133,8 @@ export async function GET(
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, organisation_id, name, site_id, created_at, active_stage_id, hidden_from_qa_at')
+    .select('id, organisation_id, name, site_id, created_at, active_stage_id, hidden_from_qa_at, cc_project_id, cc_quote_id, cc_job_number')
+    .eq('organisation_id', staffAuth.org.id)
     .eq('id', jobId)
     .single();
 
@@ -140,7 +144,13 @@ export async function GET(
     return serverError(requestId, supabaseErr.code ?? 'JOB_GET', 'Failed to load job');
   }
 
-  const res = NextResponse.json({ ok: true, job });
+  let projects: Awaited<ReturnType<typeof fetchCcProjects>> = [];
+  if (isCcIntegrationOrgAllowed(staffAuth.org.id)) {
+    try { projects = await fetchCcProjects(staffAuth.org.id, requestId); }
+    catch { console.warn('[api/jobs] CC number refresh unavailable', { requestId }); }
+  }
+  const [enrichedJob] = enrichJobsWithSiteLocation([job], projects);
+  const res = NextResponse.json({ ok: true, job: enrichedJob });
   res.headers.set('x-request-id', requestId);
   return res;
 }
