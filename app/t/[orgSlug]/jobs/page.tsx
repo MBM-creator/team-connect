@@ -195,8 +195,9 @@ export default function JobsListPage() {
 
   const ccProjectForJob = useCallback(
     (job: Job): CcProject | null => {
-      if (job.cc_project_id) {
-        return ccProjects.find((candidate) => candidate.project_id === job.cc_project_id) ?? null;
+      if (job.cc_project_id || job.cc_quote_id) {
+        return ccProjects.find((candidate) => candidate.project_id === job.cc_project_id ||
+          Boolean(job.cc_quote_id && candidate.quote_id === job.cc_quote_id)) ?? null;
       }
 
       const title = normalise(job.cc_project_title_snapshot ?? job.name);
