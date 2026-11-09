@@ -196,6 +196,27 @@ describe('parsePlanChangeBody', () => {
     expect(valid.data.replacementDescription).toContain('temporary fencing');
   });
 
+  it('adds a separate outcome without cancelling or referencing a baseline outcome', () => {
+    const missing = parsePlanChangeBody({
+      ...baseChange,
+      changeType: 'add_outcome',
+    });
+    expect(missing.ok).toBe(false);
+
+    const valid = parsePlanChangeBody({
+      ...baseChange,
+      changeType: 'add_outcome',
+      replacementDescription: 'Install additional garden edging.',
+      whatChanged: 'Added garden edging to today\'s work.',
+      whyChanged: 'Additional work identified on site.',
+    });
+    expect(valid.ok).toBe(true);
+    if (!valid.ok) return;
+    expect(valid.data.changeType).toBe('add_outcome');
+    expect(valid.data.affectedOutcomeId).toBeNull();
+    expect(valid.data.replacementDescription).toBe('Install additional garden edging.');
+  });
+
   it('requires decision maker label for client / external / other / staff name', () => {
     const missing = parsePlanChangeBody({
       ...baseChange,
