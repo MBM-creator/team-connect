@@ -51,6 +51,7 @@ export type DailyPlanNotCompletedReasonCategory =
 export const DAILY_PLAN_CHANGE_TYPES = [
   'cancel_planned_outcome',
   'add_replacement_outcome',
+  'add_outcome',
   'change_crew_allocation',
   'change_material_requirement',
   'change_equipment_requirement',
@@ -205,6 +206,7 @@ export function changeTypeLabel(changeType: DailyPlanChangeType): string {
   const labels: Record<DailyPlanChangeType, string> = {
     cancel_planned_outcome: 'Cancel planned outcome',
     add_replacement_outcome: 'Add replacement outcome',
+    add_outcome: 'Add outcome',
     change_crew_allocation: 'Change crew allocation',
     change_material_requirement: 'Change material requirement',
     change_equipment_requirement: 'Change equipment requirement',
@@ -470,8 +472,8 @@ export function parsePlanChangeBody(
   }
 
   const replacementDescription = trimField(body.replacementDescription) || null;
-  if (changeTypeRaw === 'add_replacement_outcome' && !replacementDescription) {
-    return { ok: false, message: 'Replacement work description is required' };
+  if ((changeTypeRaw === 'add_replacement_outcome' || changeTypeRaw === 'add_outcome') && !replacementDescription) {
+    return { ok: false, message: 'Outcome description is required' };
   }
 
   // Crew / equipment / material / sequence changes require what + reason + impact (already enforced).

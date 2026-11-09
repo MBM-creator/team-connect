@@ -67,9 +67,10 @@ export function DailyPlanChangeForm({
   const showReplacement =
     changeType === 'cancel_planned_outcome' ||
     changeType === 'add_replacement_outcome' ||
+    changeType === 'add_outcome' ||
     changeType === 'change_due_to_site_condition' ||
     changeType === 'other';
-  const replacementRequired = changeType === 'add_replacement_outcome';
+  const replacementRequired = changeType === 'add_replacement_outcome' || changeType === 'add_outcome';
   const needsDecisionLabel =
     decisionMakerType === 'staff_profile' ||
     decisionMakerType === 'management' ||
@@ -135,7 +136,7 @@ export function DailyPlanChangeForm({
         throw new Error(typeof data.message === 'string' ? data.message : 'Failed to record plan change');
       }
       const successMessage = data.replacementOutcomeId
-        ? 'Plan change recorded. Replacement work added.'
+        ? changeType === 'add_outcome' ? 'Additional outcome added to the plan.' : 'Plan change recorded. Replacement work added.'
         : 'Plan change recorded.';
       onSubmitted(data.plan, successMessage);
     } catch (err) {
@@ -304,14 +305,14 @@ export function DailyPlanChangeForm({
         {showReplacement && (
           <label className="block">
             <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Replacement work {replacementRequired ? '' : '(optional)'}
+              {changeType === 'add_outcome' ? 'New outcome' : 'Replacement work'} {replacementRequired ? '' : '(optional)'}
             </span>
             <textarea
               className="mt-1 w-full min-h-[88px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900"
               value={replacementDescription}
               onChange={(e) => setReplacementDescription(e.target.value)}
               rows={3}
-              placeholder="Describe the replacement work for today"
+              placeholder={changeType === 'add_outcome' ? 'Describe the additional outcome for today' : 'Describe the replacement work for today'}
             />
           </label>
         )}

@@ -489,8 +489,9 @@ function BaselineOutcomeCard({
 
 function ReplacementOutcomeCard({
   outcome,
+  isAdditional,
   ...callbacks
-}: ExecutionCallbacks & { outcome: DailyPlanReplacementOutcomeApi }) {
+}: ExecutionCallbacks & { outcome: DailyPlanReplacementOutcomeApi; isAdditional: boolean }) {
   const status = useOutcomeStatusUpdate({ ...callbacks, isReplacement: true });
   const canAct = callbacks.plan.canUpdateExecution;
 
@@ -499,7 +500,7 @@ function ReplacementOutcomeCard({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wide text-[#4f6f00]">
-            Replacement work · Added after Start Day
+            {isAdditional ? 'Additional outcome' : 'Replacement work'} · Added after Start Day
           </p>
           <p className="mt-1 whitespace-pre-wrap break-words text-gray-900">{outcome.description}</p>
         </div>
@@ -622,7 +623,7 @@ function ChangeHistoryEntry({
       )}
       {linkedReplacements.length > 0 && (
         <div className="mt-2">
-          <p className="font-medium">Replacement work</p>
+          <p className="font-medium">{change.changeType === 'add_outcome' ? 'Additional outcome' : 'Replacement work'}</p>
           <ul className="mt-1 list-disc space-y-1 pl-5">
             {linkedReplacements.map((r) => (
               <li key={r.id}>{r.description}</li>
@@ -689,11 +690,18 @@ export function DailyPlanActiveExecution({
       {plan.replacementOutcomes.length > 0 && (
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            Replacement work
+            Additional and replacement outcomes
           </p>
           <ul className="mt-2 space-y-3">
             {plan.replacementOutcomes.map((outcome) => (
-              <ReplacementOutcomeCard key={outcome.id} outcome={outcome} {...callbacks} />
+              <ReplacementOutcomeCard
+                key={outcome.id}
+                outcome={outcome}
+                isAdditional={plan.changes.some((change) =>
+                  change.changeType === 'add_outcome' && change.replacementOutcomeIds.includes(outcome.id)
+                )}
+                {...callbacks}
+              />
             ))}
           </ul>
         </div>
