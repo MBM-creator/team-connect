@@ -21,7 +21,15 @@ describe('morning checklist schedule', () => {
     ['2026-11-13T19:15:00Z', true], // Saturday
     ['2026-11-14T19:15:00Z', false], // Sunday
     ['2026-11-08T19:14:00Z', false],
-    ['2026-11-08T19:45:00Z', true], // delayed scheduler
+    ['2026-11-08T19:25:00Z', true], // delivery retry
+    ['2026-11-08T19:30:00Z', false],
+    ['2026-11-08T20:30:00Z', true], // 07:30
+    ['2026-11-08T20:40:00Z', true], // hourly delivery retry
+    ['2026-11-09T06:30:00Z', true], // 17:30
+    ['2026-11-09T07:30:00Z', false], // 18:30
+    ['2026-07-06T07:30:00Z', true], // standard-time 17:30
+    ['2026-07-06T08:30:00Z', false],
+    ['2026-11-14T20:30:00Z', false], // Sunday hourly reminder
     ['2026-10-03T19:15:00Z', false], // daylight saving starts on Sunday
   ])('evaluates %s in Melbourne', (now, due) => {
     expect(morningChecklistWindow(new Date(now)).due).toBe(due);

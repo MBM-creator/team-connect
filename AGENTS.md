@@ -9,6 +9,8 @@ Morning checklist reminders (Steve, 9 November 2026):
 - Address each list to its creator's active Team Connect staff email, not a fixed owner address.
 - Include the actual equipment/materials list and relevant notes. No SMS implementation.
 - Use the existing Resend service, authenticated cron, durable delivery snapshots and duplicate protection.
+- Follow up at 07:30 and hourly through 17:30 Monday–Saturday until the creator marks the list loaded.
+- Pause overnight/Sunday; outstanding lists resume next working morning. GET/email-link previews must never confirm loading.
 
 Important rule:
 - This is Team Connect, the QA/daily-report app.

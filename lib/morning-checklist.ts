@@ -1,15 +1,22 @@
 import { formatReportDateInTimezone } from '@/lib/report-date';
 
-/** The UTC cron runs in both possible offsets; only Melbourne's 06:15 run sends. */
+/** All scheduling decisions use Melbourne time, including daylight saving. */
 export function morningChecklistWindow(now: Date) {
   const parts = new Intl.DateTimeFormat('en-AU', {
     timeZone: 'Australia/Melbourne', weekday: 'short', hour: '2-digit',
     minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(now);
   const value = (name: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === name)?.value;
+  const hour = Number(value('hour'));
+  const minute = Number(value('minute'));
+  const morning = hour === 6 && minute >= 15 && minute < 30;
+  const followup = hour >= 7 && hour <= 17 && minute >= 30;
+  const workDate = formatReportDateInTimezone(now);
   return {
-    workDate: formatReportDateInTimezone(now),
-    due: value('weekday') !== 'Sun' && value('hour') === '06' && Number(value('minute')) >= 15,
+    workDate,
+    due: value('weekday') !== 'Sun' && (morning || followup),
+    mode: morning ? 'morning' as const : 'followup' as const,
+    slot: `${workDate}T${String(hour).padStart(2, '0')}:${morning ? '15' : '30'}`,
   };
 }
 
@@ -26,12 +33,12 @@ export type ChecklistSource = {
   kind: 'plan' | 'tomorrow';
 };
 export type ChecklistRecipient = { id: string; org_id: string; email: string; active: boolean };
-export type ChecklistEmail = { staffId: string; to: string; subject: string; text: string };
+export type ChecklistEmail = { staffId: string; orgSlug: string; to: string; subject: string; text: string };
 
 export function buildMorningChecklists(
   sources: ChecklistSource[], staff: ChecklistRecipient[], workDate: string, origin: string,
 ): ChecklistEmail[] {
-  const groups = new Map<string, { staff: ChecklistRecipient; sections: string[] }>();
+  const groups = new Map<string, { staff: ChecklistRecipient; orgSlug: string; sections: string[] }>();
   // Stable order keeps the stored email and retry payload deterministic.
   for (const source of [...sources].sort((a, b) =>
     `${a.jobId}/${a.kind}`.localeCompare(`${b.jobId}/${b.kind}`))) {
@@ -49,14 +56,14 @@ export function buildMorningChecklists(
       ...(notes ? [source.kind === 'tomorrow' ? 'Notes for today:' : 'Plan notes:', notes] : []),
       `Open today's plan: ${link}`,
     ].join('\n');
-    const group = groups.get(recipient.id) ?? { staff: recipient, sections: [] };
+    const group = groups.get(recipient.id) ?? { staff: recipient, orgSlug: source.orgSlug, sections: [] };
     group.sections.push(section);
     groups.set(recipient.id, group);
   }
   const dateLabel = new Intl.DateTimeFormat('en-AU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
     .format(new Date(`${workDate}T12:00:00Z`));
-  return [...groups.values()].map(({ staff: recipient, sections }) => ({
-    staffId: recipient.id, to: recipient.email.trim(),
+  return [...groups.values()].map(({ staff: recipient, orgSlug, sections }) => ({
+    staffId: recipient.id, orgSlug, to: recipient.email.trim(),
     subject: `Team Connect: tools and notes for ${dateLabel}`,
     text: [`Before you leave the yard - ${dateLabel}`, ...sections,
       'Check that your tools, equipment and materials are loaded before you leave.',

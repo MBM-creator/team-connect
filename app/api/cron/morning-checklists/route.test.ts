@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 vi.mock('@/lib/supabase-admin', () => ({ supabaseAdmin: {} }));
-vi.mock('@/lib/morning-checklist-delivery', () => ({ deliverMorningChecklists: vi.fn() }));
+vi.mock('@/lib/morning-checklist-delivery', () => ({ deliverMorningChecklists: vi.fn(), queueMorningChecklists: vi.fn().mockResolvedValue(0) }));
+vi.mock('@/lib/loading-reminders', () => ({ deliverLoadingReminders: vi.fn().mockResolvedValue({ sent: 0, failed: 0 }) }));
+import { deliverLoadingReminders } from '@/lib/loading-reminders';
 import { deliverMorningChecklists } from '@/lib/morning-checklist-delivery';
 import { GET } from './route';
 
@@ -45,5 +47,11 @@ describe('scheduled email endpoint', () => {
     expect(deliverMorningChecklists).toHaveBeenCalledWith({}, '2026-11-09', expect.any(String));
     vi.mocked(deliverMorningChecklists).mockResolvedValue({ queued: 1, sent: 0, failed: 1 });
     expect((await GET(request('test-secret'))).status).toBe(500);
+  });
+  it('sends an hourly reminder without sending another initial email', async () => {
+    setup('2026-11-08T20:30:00Z');
+    expect((await GET(request('test-secret'))).status).toBe(200);
+    expect(deliverMorningChecklists).not.toHaveBeenCalled();
+    expect(deliverLoadingReminders).toHaveBeenCalledWith({}, '2026-11-09', expect.any(String), '2026-11-09T07:30', false);
   });
 });
