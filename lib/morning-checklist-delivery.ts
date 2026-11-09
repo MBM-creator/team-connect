@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { randomUUID } from 'node:crypto';
+import { loadingEmailHtml, loadingListUrl } from '@/lib/loading-list';
 import { buildMorningChecklists, previousWorkingDate, type ChecklistSource } from '@/lib/morning-checklist';
 
 export async function loadMorningChecklists(db: SupabaseClient, workDate: string, origin: string) {
@@ -50,26 +52,48 @@ export async function loadMorningChecklists(db: SupabaseClient, workDate: string
   return buildMorningChecklists(sources, staff.data ?? [], workDate, origin);
 }
 
+export async function queueMorningChecklists(db: SupabaseClient, workDate: string, origin: string) {
+  const from = process.env.RESEND_FROM_EMAIL?.trim();
+  if (!from) throw new Error('Checklist email sender is not configured');
+  const emails = await loadMorningChecklists(db, workDate, origin);
+  if (emails.length) {
+    const queued = await db.from('morning_checklist_emails').upsert(emails.map(email => {
+      const id = randomUUID();
+      const url = loadingListUrl(origin, email.orgSlug, id);
+      return {
+      id,
+      staff_profile_id: email.staffId, work_date: workDate, recipient: email.to,
+      sender: from, subject: email.subject, body_text: `${email.text}\n\nMark as loaded: ${url}`,
+      confirmation_url: url,
+    }; }), { onConflict: 'staff_profile_id,work_date', ignoreDuplicates: true });
+    if (queued.error) throw new Error(`Checklist queue failed: ${queued.error.code}`);
+  }
+  return emails.length;
+}
+
 /** Stored snapshots + an atomic claim + Resend idempotency protect concurrent calls and retries. */
 export async function deliverMorningChecklists(db: SupabaseClient, workDate: string, origin: string) {
   const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.RESEND_FROM_EMAIL?.trim();
-  if (!apiKey || !from) throw new Error('Checklist email service is not configured');
-  const emails = await loadMorningChecklists(db, workDate, origin);
-  if (emails.length) {
-    const queued = await db.from('morning_checklist_emails').upsert(emails.map(email => ({
-      staff_profile_id: email.staffId, work_date: workDate, recipient: email.to,
-      sender: from, subject: email.subject, body_text: email.text,
-    })), { onConflict: 'staff_profile_id,work_date', ignoreDuplicates: true });
-    if (queued.error) throw new Error(`Checklist queue failed: ${queued.error.code}`);
-  }
+  if (!apiKey) throw new Error('Checklist email service is not configured');
+  const queued = await queueMorningChecklists(db, workDate, origin);
   const pending = await db.from('morning_checklist_emails').select('*')
-    .eq('work_date', workDate).neq('status', 'sent');
+    .eq('work_date', workDate).is('loaded_at', null).neq('status', 'sent');
   if (pending.error) throw new Error(`Checklist queue lookup failed: ${pending.error.code}`);
+  const result = await sendChecklistQueue(db, 'morning_checklist_emails', pending.data ?? [], apiKey);
+  return { queued, ...result };
+}
+
+export type ChecklistQueueRow = {
+  id: string; staff_profile_id: string; recipient: string; sender: string;
+  subject: string; body_text: string; confirmation_url: string | null;
+  status: string; created_at: string; updated_at: string; checklist_email_id?: string;
+};
+
+export async function sendChecklistQueue(db: SupabaseClient, table: string, rows: ChecklistQueueRow[], apiKey: string) {
   let sent = 0;
   let failed = 0;
   const resend = new Resend(apiKey);
-  for (const row of pending.data ?? []) {
+  for (const row of rows) {
     // Never retry outside the provider's 24-hour idempotency window.
     if (Date.now() - Date.parse(row.created_at) >= 23 * 60 * 60 * 1000) continue;
     if (row.status === 'sending' && Date.now() - Date.parse(row.updated_at) < 5 * 60 * 1000) continue;
@@ -77,15 +101,22 @@ export async function deliverMorningChecklists(db: SupabaseClient, workDate: str
     if (staff.error) throw new Error(`Checklist recipient check failed: ${staff.error.code}`);
     if (!staff.data?.active || staff.data.email.trim() !== row.recipient) continue;
     const claimedAt = new Date().toISOString();
-    const claim = await db.from('morning_checklist_emails').update({ status: 'sending', updated_at: claimedAt })
+    const claim = await db.from(table).update({ status: 'sending', updated_at: claimedAt })
       .eq('id', row.id).eq('status', row.status).eq('updated_at', row.updated_at).select('id').maybeSingle();
     if (claim.error) throw new Error(`Checklist claim failed: ${claim.error.code}`);
     if (!claim.data) continue;
     try {
+      // Recheck after claiming, so confirmation suppresses even a queued follow-up.
+      const parent = await db.from('morning_checklist_emails').select('loaded_at')
+        .eq('id', row.checklist_email_id ?? row.id).eq('staff_profile_id', row.staff_profile_id).maybeSingle();
+      if (parent.error) throw new Error('Checklist loaded status lookup failed');
+      if (!parent.data || parent.data.loaded_at) continue;
       const result = await resend.emails.send({ from: row.sender, to: [row.recipient],
-        subject: row.subject, text: row.body_text }, { idempotencyKey: `morning-checklist/${row.id}` });
+        subject: row.subject, text: row.body_text,
+        ...(row.confirmation_url ? { html: loadingEmailHtml(row.body_text, row.confirmation_url) } : {}),
+      }, { idempotencyKey: `morning-checklist/${row.id}` });
       if (result.error || !result.data?.id) throw new Error('Email provider rejected checklist');
-      const saved = await db.from('morning_checklist_emails').update({ status: 'sent',
+      const saved = await db.from(table).update({ status: 'sent',
         provider_email_id: result.data.id, sent_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }).eq('id', row.id).eq('updated_at', claimedAt);
       if (saved.error) throw new Error('Checklist delivery recording failed');
@@ -93,11 +124,11 @@ export async function deliverMorningChecklists(db: SupabaseClient, workDate: str
     } catch {
       failed++;
       // Retain the exact snapshot so an ambiguous provider timeout can be retried safely.
-      const saved = await db.from('morning_checklist_emails').update({ status: 'failed', updated_at: new Date().toISOString() })
+      const saved = await db.from(table).update({ status: 'failed', updated_at: new Date().toISOString() })
         .eq('id', row.id).eq('updated_at', claimedAt);
       if (saved.error) throw new Error('Checklist failure recording failed');
       console.error('[morning-checklist] Email failed', { queueId: row.id });
     }
   }
-  return { queued: emails.length, sent, failed };
+  return { sent, failed };
 }

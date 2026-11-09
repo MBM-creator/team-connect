@@ -273,7 +273,17 @@ Apply the `morning_checklist_email` migration before deploying. Set `CRON_SECRET
 in production; the existing `RESEND_API_KEY` and verified `RESEND_FROM_EMAIL` are reused.
 The protected `/api/cron/morning-checklists` endpoint uses the production app origin.
 Vercel invokes it at both potential UTC offsets; the Melbourne time guard selects the
-correct offset and excludes Sundays. A 06:25 invocation retries failures. A durable
+correct offset and excludes Sundays. Initial delivery is at 06:15 (retry at 06:25).
+Unconfirmed lists are emailed at 07:30 and hourly through 17:30, with a technical
+delivery retry ten minutes later. Outstanding lists resume next working morning,
+including across weekends; confirmed lists stop. Plans saved after initial delivery
+are picked up at the next hourly slot. Each email has a Mark as loaded button opening
+`/t/[orgSlug]/loading-lists/[checklistId]`. Viewing is read-only; the creator must sign
+in and explicitly confirm via POST. Confirmation applies to the entire emailed list,
+is separate from completing the daily plan, and cannot be performed by another user.
+Apply `checklist_loaded_hourly_reminders` before deploying this follow-up behaviour.
+A separate private `loading_checklist_reminders` outbox deduplicates each list/hour.
+A durable
 email snapshot, atomic delivery claim and Resend idempotency key prevent duplicate
 emails during concurrency or recovery. Pending/failed snapshots are retried unchanged
 only within 23 hours, inside Resend's 24-hour idempotency window. Preview deployments
