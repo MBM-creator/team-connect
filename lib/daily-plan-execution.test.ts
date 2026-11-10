@@ -206,8 +206,7 @@ describe('parsePlanChangeBody', () => {
     const valid = parsePlanChangeBody({
       ...baseChange,
       changeType: 'add_outcome',
-      replacementDescription: 'Install additional garden edging.',
-      whatChanged: 'Added garden edging to today\'s work.',
+      whatChanged: 'Install additional garden edging.',
       whyChanged: 'Additional work identified on site.',
     });
     expect(valid.ok).toBe(true);
@@ -215,6 +214,19 @@ describe('parsePlanChangeBody', () => {
     expect(valid.data.changeType).toBe('add_outcome');
     expect(valid.data.affectedOutcomeId).toBeNull();
     expect(valid.data.replacementDescription).toBe('Install additional garden edging.');
+    expect(valid.data.programmeImpact).toBeNull();
+  });
+
+  it('uses What changed for an added outcome even if stale replacement text was supplied', () => {
+    const valid = parsePlanChangeBody({
+      ...baseChange,
+      changeType: 'add_outcome',
+      whatChanged: 'Additional irrigation testing.',
+      replacementDescription: 'Old replacement description',
+    });
+    expect(valid.ok).toBe(true);
+    if (!valid.ok) return;
+    expect(valid.data.replacementDescription).toBe('Additional irrigation testing.');
   });
 
   it('requires decision maker label for client / external / other / staff name', () => {
