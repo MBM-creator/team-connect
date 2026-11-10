@@ -223,7 +223,7 @@ export function DailyPlanChangeForm({
 
         <label className="block">
           <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            What changed
+            {changeType === 'add_outcome' ? 'What changed (additional outcome)' : 'What changed'}
           </span>
           <textarea
             className="mt-1 w-full min-h-[88px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900"
@@ -304,14 +304,14 @@ export function DailyPlanChangeForm({
         {showReplacement && (
           <label className="block">
             <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {changeType === 'add_outcome' ? 'New outcome' : 'Replacement work'} {replacementRequired ? '' : '(optional)'}
+              Replacement work {replacementRequired ? '' : '(optional)'}
             </span>
             <textarea
               className="mt-1 w-full min-h-[88px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900"
               value={replacementDescription}
               onChange={(e) => setReplacementDescription(e.target.value)}
               rows={3}
-              placeholder={changeType === 'add_outcome' ? 'Describe the additional outcome for today' : 'Describe the replacement work for today'}
+              placeholder="Describe the replacement work for today"
             />
           </label>
         )}
