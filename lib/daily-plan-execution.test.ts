@@ -200,6 +200,7 @@ describe('parsePlanChangeBody', () => {
     const missing = parsePlanChangeBody({
       ...baseChange,
       changeType: 'add_outcome',
+      whatChanged: '',
     });
     expect(missing.ok).toBe(false);
 
