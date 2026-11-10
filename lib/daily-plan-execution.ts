@@ -398,7 +398,7 @@ export function parsePlanChangeBody(
   }
 
   const programmeImpactRaw = trimField(body.programmeImpact);
-  const programmeImpact = programmeImpactRaw || null;
+  const programmeImpact = changeTypeRaw === 'add_outcome' ? null : programmeImpactRaw || null;
 
   const decisionMakerTypeRaw = trimField(body.decisionMakerType, 64);
   if (
