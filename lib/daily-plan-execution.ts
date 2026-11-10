@@ -398,7 +398,7 @@ export function parsePlanChangeBody(
   }
 
   const programmeImpactRaw = trimField(body.programmeImpact);
-  const programmeImpact = programmeImpactRaw || null;
+  const programmeImpact = changeTypeRaw === 'add_outcome' ? null : programmeImpactRaw || null;
 
   const decisionMakerTypeRaw = trimField(body.decisionMakerType, 64);
   if (
@@ -471,7 +471,10 @@ export function parsePlanChangeBody(
     return { ok: false, message: 'Select the planned outcome to cancel' };
   }
 
-  const replacementDescription = trimField(body.replacementDescription) || null;
+  // Added outcomes use the What changed description; avoid requiring duplicate entry.
+  const replacementDescription = changeTypeRaw === 'add_outcome'
+    ? whatChanged
+    : trimField(body.replacementDescription) || null;
   if ((changeTypeRaw === 'add_replacement_outcome' || changeTypeRaw === 'add_outcome') && !replacementDescription) {
     return { ok: false, message: 'Outcome description is required' };
   }
