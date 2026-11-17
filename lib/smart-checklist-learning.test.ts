@@ -49,6 +49,14 @@ describe('cross-job Smart Checklist learning', () => {
     expect(result.some(item => item.description === 'Diamond blade')).toBe(false);
   });
 
+  it('does not reuse stale Loaded evidence after a later job-only exclusion', () => {
+    const result = learnChecklistSuggestions('Lay bluestone paving', [], [
+      observation('old', 'loaded', 'Diamond blade', '2026-11-10'),
+      observation('old', 'not_required_for_job', 'Diamond blade', '2026-11-12'),
+    ], 'new-job');
+    expect(result.some(item => item.description === 'Diamond blade')).toBe(false);
+  });
+
   it('downgrades repeatedly not-required standard suggestions instead of suppressing them', () => {
     const result = learnChecklistSuggestions('Lay bluestone paving', [], [
       observation('a', 'not_required', 'Wet saw'),
