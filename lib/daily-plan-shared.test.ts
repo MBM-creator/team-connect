@@ -149,7 +149,7 @@ describe('parseDailyPlanUpsertBody', () => {
     expect(result.message).toMatch(/at least one/i);
   });
 
-  it('rejects more than three outcomes', () => {
+  it('accepts more than three outcomes', () => {
     const result = parseDailyPlanUpsertBody(
       validBody({
         outcomes: [
@@ -163,7 +163,8 @@ describe('parseDailyPlanUpsertBody', () => {
     );
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.message).toMatch(/up to three/i);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.outcomes).toHaveLength(4);
   });
 
   it('rejects blank outcomes', () => {
