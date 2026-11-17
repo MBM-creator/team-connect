@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { DailyPlanApi } from '@/lib/daily-plan-shared';
+import { AustralianDatePicker } from '@/components/AustralianDatePicker';
 import {
   DAILY_PLAN_CARRY_FORWARD_ADDED_MESSAGE,
   DAILY_PLAN_DUPLICATE_CARRY_FORWARD_MESSAGE,
@@ -319,14 +320,12 @@ export function DailyPlanForm({
         <label htmlFor="workDate" className={labelClass}>
           Work date
         </label>
-        <input
+        <AustralianDatePicker
           id="workDate"
-          type="date"
-          lang="en-AU"
           className={fieldClass}
           value={form.workDate}
           disabled={workDateLocked || mode === 'edit' || submitting}
-          onChange={(e) => setForm((prev) => ({ ...prev, workDate: e.target.value }))}
+          onChange={(value) => setForm((prev) => ({ ...prev, workDate: value }))}
           required
         />
         {mode === 'edit' && (
@@ -419,11 +418,11 @@ export function DailyPlanForm({
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-gray-900">Planned outcomes</h2>
           <span className="text-xs text-gray-500">
-            {form.outcomes.length}/{DAILY_PLAN_MAX_OUTCOMES}
+            {form.outcomes.length} added
           </span>
         </div>
         <p className="mt-1 text-sm text-gray-600">
-          Main results the crew should achieve (1–3). Keep them concrete.
+          List each result the crew should achieve. Add as many as needed and keep them concrete.
         </p>
         <div className="mt-3 space-y-3">
           {form.outcomes.map((outcome, index) => (
