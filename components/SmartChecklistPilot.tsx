@@ -139,51 +139,11 @@ export default function SmartChecklistPilot() {
       browser, including after refreshing the page. Nothing is written to actual jobs or sent by email.
     </div>
 
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4">
-      <span className="font-medium">{!ready ? 'Loading test…' : dirty ? 'Unsaved test changes' :
-        savedAt ? 'Test saved on this device' : 'Sample test checklist'}</span>
-      <button type="button" onClick={save} disabled={!ready}
-        className="rounded-lg bg-[#698F00] px-5 py-3 font-semibold text-white disabled:opacity-50">
-        Save test checklist
-      </button>
-    </div>
-
     <label className="block space-y-2">
       <span className="font-semibold">Sample activity (editable)</span>
       <input className="w-full rounded-lg border p-3" value={activity}
         onChange={event => setActivity(event.target.value)} />
     </label>
-
-    <section className="rounded-xl border bg-white p-4">
-      <h2 className="mb-2 text-lg font-semibold">Add your own tool or material</h2>
-      <p className="mb-3 text-sm text-gray-600">Type any item you think is missing.</p>
-      <form onSubmit={event => { event.preventDefault(); addItem(newItem, newCategory); }}
-        className="flex flex-wrap gap-2">
-        <input aria-label="Tool or material name" className="min-w-40 flex-1 rounded-lg border p-3"
-          placeholder="e.g. spare diamond blade" value={newItem}
-          onChange={event => setNewItem(event.target.value)} />
-        <select aria-label="Item category" className="rounded-lg border p-3"
-          value={newCategory} onChange={event => setNewCategory(event.target.value as 'tool' | 'material')}>
-          <option value="tool">Tool</option><option value="material">Material</option>
-        </select>
-        <button type="submit" className="rounded-lg bg-[#698F00] px-5 py-3 font-semibold text-white">
-          + Add item
-        </button>
-      </form>
-    </section>
-
-    <section className="rounded-xl border bg-white p-4">
-      <h2 className="mb-2 text-lg font-semibold">Suggested missing items</h2>
-      {proposed.length === 0 ? <p className="text-sm text-gray-600">
-        No further suggestions for this activity. You can always add your own item above.
-      </p> : proposed.map(s => <div key={s.description}
-        className="flex items-center justify-between gap-3 border-t py-3 first:border-t-0">
-        <div><p className="font-medium">{s.description}</p>
-          <p className="text-sm text-gray-600">{s.why}</p></div>
-        <button type="button" className="shrink-0 rounded-lg bg-[#698F00] px-4 py-2 text-sm text-white"
-          onClick={() => addItem(s.description, s.category)}>+ Add</button>
-      </div>)}
-    </section>
 
     <section className="space-y-4">
       <h2 className="text-lg font-semibold">Checklist ({items.length} items)</h2>
@@ -217,6 +177,40 @@ export default function SmartChecklistPilot() {
           Reason: {item.reason}</p>}
       </div>)}
     </section>
+
+
+    <section className="rounded-xl border bg-white p-4">
+      <h2 className="mb-2 text-lg font-semibold">Suggested missing items</h2>
+      {proposed.length === 0 ? <p className="text-sm text-gray-600">
+        No further suggestions for this activity. You can always add your own item below.
+      </p> : proposed.map(s => <div key={s.description}
+        className="flex items-center justify-between gap-3 border-t py-3 first:border-t-0">
+        <div><p className="font-medium">{s.description}</p>
+          <p className="text-sm text-gray-600">{s.why}</p></div>
+        <button type="button" className="shrink-0 rounded-lg bg-[#698F00] px-4 py-2 text-sm text-white"
+          onClick={() => addItem(s.description, s.category)}>+ Add</button>
+      </div>)}
+    </section>
+
+
+    <section className="rounded-xl border bg-white p-4">
+      <h2 className="mb-2 text-lg font-semibold">Add your own tool or material</h2>
+      <p className="mb-3 text-sm text-gray-600">Type any item you think is missing.</p>
+      <form onSubmit={event => { event.preventDefault(); addItem(newItem, newCategory); }}
+        className="flex flex-wrap gap-2">
+        <input aria-label="Tool or material name" className="min-w-40 flex-1 rounded-lg border p-3"
+          placeholder="e.g. spare diamond blade" value={newItem}
+          onChange={event => setNewItem(event.target.value)} />
+        <select aria-label="Item category" className="rounded-lg border p-3"
+          value={newCategory} onChange={event => setNewCategory(event.target.value as 'tool' | 'material')}>
+          <option value="tool">Tool</option><option value="material">Material</option>
+        </select>
+        <button type="submit" className="rounded-lg bg-[#698F00] px-5 py-3 font-semibold text-white">
+          + Add item
+        </button>
+      </form>
+    </section>
+
 
     <section className="space-y-3 rounded-xl border bg-gray-50 p-4">
       <p className="font-semibold">{checklistIsResolved(items) ?
