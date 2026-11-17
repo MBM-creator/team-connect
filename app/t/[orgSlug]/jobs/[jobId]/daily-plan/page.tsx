@@ -406,7 +406,9 @@ export default function DailyPlanPage() {
                     {submitSuccess && (
                       <h2 className="text-sm font-semibold text-gray-900">Saved plan</h2>
                     )}
-                    <DailyPlanView plan={plan} />
+                    <DailyPlanView plan={plan} orgSlug={orgSlug} jobId={jobId}
+                      onPlanUpdated={(next) => setPlan(next)}
+                      onConflict={() => void reloadPlan()} />
                     {(plan.canStartDay || ui?.showStartDay) && (
                       <DailyPlanStartDayControls
                         orgSlug={orgSlug}

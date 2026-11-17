@@ -175,8 +175,12 @@ export type DailyPlanCrewResponsibilityApi = {
   displayOrder: number;
 };
 
+export type DailyPlanChecklistStatus = 'pending' | 'loaded' | 'not_required' | 'not_required_for_job';
+
 export type DailyPlanMaterialApi = {
   id: string;
+  checklistStatus: DailyPlanChecklistStatus;
+  checklistReason: string | null;
   description: string;
   quantity: string | null;
   displayOrder: number;
@@ -184,6 +188,8 @@ export type DailyPlanMaterialApi = {
 
 export type DailyPlanEquipmentApi = {
   id: string;
+  checklistStatus: DailyPlanChecklistStatus;
+  checklistReason: string | null;
   description: string;
   displayOrder: number;
 };
@@ -836,8 +842,10 @@ export function mapDailyPlanApi(input: {
     description: string;
     quantity: string | null;
     display_order: number;
+    checklist_status: DailyPlanChecklistStatus;
+    checklist_reason: string | null;
   }>;
-  equipment: Array<{ id: string; description: string; display_order: number }>;
+  equipment: Array<{ id: string; description: string; display_order: number; checklist_status: DailyPlanChecklistStatus; checklist_reason: string | null }>;
   replacementOutcomes?: DailyPlanReplacementOutcomeDbRow[];
   changes?: DailyPlanChangeDbRow[];
   outcomeEvents?: DailyPlanOutcomeEventDbRow[];
@@ -921,6 +929,8 @@ export function mapDailyPlanApi(input: {
         id: m.id,
         description: m.description,
         quantity: m.quantity,
+        checklistStatus: m.checklist_status,
+        checklistReason: m.checklist_reason,
         displayOrder: m.display_order,
       })),
     equipment: [...input.equipment]
@@ -928,6 +938,8 @@ export function mapDailyPlanApi(input: {
       .map((e) => ({
         id: e.id,
         description: e.description,
+        checklistStatus: e.checklist_status,
+        checklistReason: e.checklist_reason,
         displayOrder: e.display_order,
       })),
     replacementOutcomes: replacementOutcomes.map((r) => ({
