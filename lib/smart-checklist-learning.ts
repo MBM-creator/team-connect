@@ -56,12 +56,13 @@ export function learnChecklistSuggestions(
   const latestByJobAndItem = new Map<string, ChecklistLearningObservation>();
   for (const item of [...observations].sort((a, b) => b.workDate.localeCompare(a.workDate))) {
     if (item.jobId === currentJobId || !similarActivity(activity, item.activity)) continue;
-    if (item.status === 'pending' || item.status === 'not_required_for_job') continue;
     const signature = `${item.jobId}:${key(item.category, item.description)}`;
     if (!latestByJobAndItem.has(signature)) latestByJobAndItem.set(signature, item);
   }
   const totals = new Map<string, { category: 'tool' | 'material'; description: string; loaded: number; notRequired: number }>();
   for (const item of latestByJobAndItem.values()) {
+    // A later pending or job-only decision supersedes older Loaded evidence.
+    if (item.status === 'pending' || item.status === 'not_required_for_job') continue;
     const signature = key(item.category, item.description);
     const value = totals.get(signature) ?? {
       category: item.category, description: item.description, loaded: 0, notRequired: 0,
