@@ -156,12 +156,12 @@ describe('Phase 2F — suggestion mapping', () => {
 });
 
 describe('Phase 2F — outcome slots', () => {
-  it('reports available slots and blocks at three', () => {
-    expect(availableOutcomeSlots(1)).toBe(2);
-    expect(availableOutcomeSlots(3)).toBe(0);
+  it('allows more than three outcomes and still has a safety ceiling', () => {
+    expect(availableOutcomeSlots(1)).toBe(999);
+    expect(availableOutcomeSlots(3)).toBe(997);
     expect(
       canAddCarryForwardSuggestion({
-        currentOutcomeCount: 3,
+        currentOutcomeCount: 1000,
         includedCarryForwardIds: [],
         suggestionCarryForwardId: CF_ID,
       })
