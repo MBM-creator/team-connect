@@ -149,7 +149,7 @@ describe('parseDailyPlanUpsertBody', () => {
     expect(result.message).toMatch(/at least one/i);
   });
 
-  it('rejects more than three outcomes', () => {
+  it('accepts more than three outcomes', () => {
     const result = parseDailyPlanUpsertBody(
       validBody({
         outcomes: [
@@ -161,9 +161,10 @@ describe('parseDailyPlanUpsertBody', () => {
       }),
       { mode: 'create', todayInTimezone: () => '2026-07-20' }
     );
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.message).toMatch(/up to three/i);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.outcomes).toHaveLength(4);
+    expect(result.data.outcomes.map((item) => item.displayOrder)).toEqual([1, 2, 3, 4]);
   });
 
   it('rejects blank outcomes', () => {

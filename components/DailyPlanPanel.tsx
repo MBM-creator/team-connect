@@ -1,4 +1,5 @@
 'use client';
+import { AustralianDatePicker } from '@/components/AustralianDatePicker';
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -501,13 +502,11 @@ export function DailyPlanPanel({
           <label htmlFor="daily-plan-work-date" className="block text-xs font-medium text-gray-600">
             Work date
           </label>
-          <input
+          <AustralianDatePicker
             id="daily-plan-work-date"
-            type="date"
-            lang="en-AU"
             className="mt-1 w-full min-h-[44px] rounded-lg border border-gray-300 px-3 py-2 text-base text-gray-900 sm:w-auto"
             value={workDate}
-            onChange={(e) => setWorkDate(e.target.value)}
+            onChange={setWorkDate}
           />
         </div>
       </div>

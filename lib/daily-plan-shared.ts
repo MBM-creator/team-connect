@@ -16,7 +16,8 @@ import {
 } from '@/lib/daily-plan-execution';
 
 export const DAILY_PLAN_MAX_FIELD_LENGTH = 5000;
-export const DAILY_PLAN_MAX_OUTCOMES = 3;
+// Practical safety ceiling; no three-outcome restriction for normal plans.
+export const DAILY_PLAN_MAX_OUTCOMES = 1000;
 export const DAILY_PLAN_MIN_OUTCOMES = 1;
 export const DAILY_PLAN_WORK_TIMEZONE = DEFAULT_REPORT_TIMEZONE;
 
@@ -411,7 +412,7 @@ export const DAILY_PLAN_PAST_DRAFT_STATUS_MESSAGE =
   'Draft — not started on the scheduled work date.';
 
 export const DAILY_PLAN_THREE_OUTCOME_LIMIT_MESSAGE =
-  'Daily Plans can contain up to three primary outcomes. Remove an outcome before adding this item.';
+  'This plan has reached the maximum of 1,000 outcomes.';
 
 export const DAILY_PLAN_DUPLICATE_CARRY_FORWARD_MESSAGE =
   'This carry-forward item was already used in another Daily Plan. Add it again?';
@@ -492,7 +493,7 @@ function parseOutcomes(
     return { ok: false, message: 'Add at least one planned outcome' };
   }
   if (raw.length > DAILY_PLAN_MAX_OUTCOMES) {
-    return { ok: false, message: 'You can add up to three planned outcomes' };
+    return { ok: false, message: 'You can add up to 1,000 planned outcomes' };
   }
 
   const outcomes: ParsedDailyPlanOutcome[] = [];
