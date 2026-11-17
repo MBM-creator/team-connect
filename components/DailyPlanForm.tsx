@@ -339,8 +339,7 @@ export function DailyPlanForm({
             Carry-forward from the previous workday
           </h2>
           <p className="mt-1 text-sm text-gray-600">
-            Suggestions only — nothing is added until you choose it. {slots} outcome slot
-            {slots === 1 ? '' : 's'} available.
+            Suggestions only — nothing is added until you choose it. Add any relevant work to the plan.
           </p>
 
           {suggestionsLoading && (
