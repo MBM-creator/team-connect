@@ -32,6 +32,10 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string; planId: string; kind: string; itemId: string }> },
 ) {
+  const origin = request.headers.get('origin');
+  if (origin && origin !== request.nextUrl.origin) {
+    return NextResponse.json({ ok: false, message: 'Invalid request origin' }, { status: 403 });
+  }
   const { jobId, planId, kind, itemId } = await params;
   const orgSlug = request.nextUrl.searchParams.get('orgSlug')?.trim() ?? '';
   const auth = await guardStaffApi(orgSlug, ['supervisor', 'admin']);
