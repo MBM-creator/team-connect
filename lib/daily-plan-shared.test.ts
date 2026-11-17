@@ -161,10 +161,10 @@ describe('parseDailyPlanUpsertBody', () => {
       }),
       { mode: 'create', todayInTimezone: () => '2026-07-20' }
     );
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.data.outcomes).toHaveLength(4);
+    if (!result.ok) return;
+    expect(result.data.outcomes).toHaveLength(4);
+    expect(result.data.outcomes.map((item) => item.displayOrder)).toEqual([1, 2, 3, 4]);
   });
 
   it('rejects blank outcomes', () => {
