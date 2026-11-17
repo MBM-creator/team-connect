@@ -1,4 +1,5 @@
 'use client';
+import { AustralianDatePicker } from '@/components/AustralianDatePicker';
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -215,11 +216,10 @@ export function SiteOperationsDashboard({ orgSlug }: { orgSlug: string }) {
         >
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-gray-700">Work date</span>
-            <input
-              type="date"
-              lang="en-AU"
+            <AustralianDatePicker
+              id="site-operations-work-date"
               value={workDate}
-              onChange={(e) => updateFilters({ workDate: e.target.value })}
+              onChange={(value) => updateFilters({ workDate: value })}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
