@@ -176,12 +176,12 @@ export async function loadDailyPlanBundle(
       .order('display_order', { ascending: true }),
     supabaseAdmin
       .from('job_daily_plan_materials')
-      .select('id, description, quantity, display_order')
+      .select('id, description, quantity, display_order, checklist_status, checklist_reason')
       .eq('daily_plan_id', planId)
       .order('display_order', { ascending: true }),
     supabaseAdmin
       .from('job_daily_plan_equipment')
-      .select('id, description, display_order')
+      .select('id, description, display_order, checklist_status, checklist_reason')
       .eq('daily_plan_id', planId)
       .order('display_order', { ascending: true }),
     supabaseAdmin
@@ -236,11 +236,15 @@ export async function loadDailyPlanBundle(
         description: string;
         quantity: string | null;
         display_order: number;
+        checklist_status: 'pending' | 'loaded' | 'not_required' | 'not_required_for_job';
+        checklist_reason: string | null;
       }>,
       equipment: (equipmentRes.data ?? []) as Array<{
         id: string;
         description: string;
         display_order: number;
+        checklist_status: 'pending' | 'loaded' | 'not_required' | 'not_required_for_job';
+        checklist_reason: string | null;
       }>,
       replacementOutcomes: (replacementsRes.data ?? []) as DailyPlanReplacementOutcomeDbRow[],
       changes: (changesRes.data ?? []) as DailyPlanChangeDbRow[],
@@ -279,6 +283,32 @@ export async function replaceDailyPlanChildren(
   planId: string,
   parsed: ParsedDailyPlanUpsert
 ): Promise<{ ok: true } | { ok: false; message: string; code?: string }> {
+  // Retain item decisions when a draft is edited, even though baseline child rows are rewritten.
+  const [oldMaterials, oldEquipment] = await Promise.all([
+    supabaseAdmin.from('job_daily_plan_materials')
+      .select('description, quantity, checklist_status, checklist_reason').eq('daily_plan_id', planId).order('display_order'),
+    supabaseAdmin.from('job_daily_plan_equipment')
+      .select('description, checklist_status, checklist_reason').eq('daily_plan_id', planId).order('display_order'),
+  ]);
+  if (oldMaterials.error || oldEquipment.error) {
+    return { ok: false, message: 'Failed to preserve checklist decisions' };
+  }
+  const usedMaterials = new Set<number>();
+  const usedEquipment = new Set<number>();
+  function previousDecision(
+    rows: Array<{ description: string; checklist_status: string; checklist_reason: string | null; quantity?: string | null }>,
+    used: Set<number>, description: string, quantity?: string | null,
+  ) {
+    const index = rows.findIndex((row, i) => !used.has(i) &&
+      row.description.trim().toLowerCase() === description.trim().toLowerCase() &&
+      (quantity === undefined || (row.quantity ?? '') === (quantity ?? '')));
+    if (index < 0) return { checklist_status: 'pending', checklist_reason: null };
+    used.add(index);
+    return {
+      checklist_status: rows[index].checklist_status,
+      checklist_reason: rows[index].checklist_reason,
+    };
+  }
   const { error: delOutcomes } = await supabaseAdmin
     .from('job_daily_plan_outcomes')
     .delete()
@@ -347,6 +377,7 @@ export async function replaceDailyPlanChildren(
         description: m.description,
         quantity: m.quantity,
         display_order: m.displayOrder,
+        ...previousDecision(oldMaterials.data ?? [], usedMaterials, m.description, m.quantity),
       }))
     );
     if (error) {
@@ -360,6 +391,7 @@ export async function replaceDailyPlanChildren(
         daily_plan_id: planId,
         description: e.description,
         display_order: e.displayOrder,
+        ...previousDecision(oldEquipment.data ?? [], usedEquipment, e.description),
       }))
     );
     if (error) {
