@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DailyPlanApi } from '@/lib/daily-plan-shared';
 import { AustralianDatePicker } from '@/components/AustralianDatePicker';
+import { suggestChecklistItems, type Suggestion } from '@/lib/smart-checklist';
 import {
   DAILY_PLAN_CARRY_FORWARD_ADDED_MESSAGE,
   DAILY_PLAN_DUPLICATE_CARRY_FORWARD_MESSAGE,
@@ -140,6 +141,25 @@ export function DailyPlanForm({
   );
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+
+  // Suggestions are based on the actual outcomes and kept out of the plan until accepted.
+  const smartSuggestions = useMemo(() => suggestChecklistItems(
+    form.outcomes.map((outcome) => outcome.description).join(' '),
+    [...form.materials.map((item) => item.description), ...form.equipment.map((item) => item.description)],
+  ), [form.outcomes, form.materials, form.equipment]);
+  const [reviewWarning, setReviewWarning] = useState(false);
+
+  function addSmartSuggestion(suggestion: Suggestion) {
+    setForm(prev => {
+      const present = [...prev.materials, ...prev.equipment].some(item =>
+        item.description.trim().toLowerCase() === suggestion.description.toLowerCase());
+      if (present) return prev;
+      return suggestion.category === 'material'
+        ? { ...prev, materials: [...prev.materials, { description: suggestion.description, quantity: '' }] }
+        : { ...prev, equipment: [...prev.equipment, { description: suggestion.description }] };
+    });
+    setReviewWarning(false);
+  }
 
   const includedIds = useMemo(
     () =>
@@ -313,6 +333,13 @@ export function DailyPlanForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (submitting) return;
+        if (smartSuggestions.length > 0 && !window.confirm(
+          `Smart Checklist found ${smartSuggestions.length} possible missing item(s). ` +
+          'Select Cancel to review and add what you need, or OK to save the plan without them.'
+        )) {
+          setReviewWarning(true);
+          return;
+        }
         onSubmit(form);
       }}
     >
@@ -668,6 +695,36 @@ export function DailyPlanForm({
           Add equipment
         </button>
       </div>
+
+      <section aria-label="Smart tools and materials review" className="rounded-lg border border-sc-euca/30 bg-sc-euca-tint p-4">
+        <h2 className="text-sm font-semibold text-gray-900">Smart Checklist — possible missing items</h2>
+        <p className="mt-1 text-sm text-gray-700">
+          Based on the planned outcomes. Review these before saving. Suggestions are not added automatically.
+        </p>
+        {smartSuggestions.length === 0 ? (
+          <p className="mt-3 text-sm text-gray-700">
+            No additional suggestions for these activities. Check your list for anything job-specific.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {smartSuggestions.map((suggestion) => (
+              <li key={suggestion.description} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{suggestion.description}</p>
+                  <p className="text-xs text-gray-600">{suggestion.why}</p>
+                </div>
+                <button type="button" className={btnPrimary} disabled={submitting}
+                  onClick={() => addSmartSuggestion(suggestion)}>
+                  + Add to {suggestion.category === 'material' ? 'materials' : 'equipment'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {reviewWarning && <p role="status" className="mt-3 text-sm font-semibold text-amber-900">
+          Review the suggestions above, then save the plan again.
+        </p>}
+      </section>
 
       <div>
         <label htmlFor="risksConstraints" className={labelClass}>
