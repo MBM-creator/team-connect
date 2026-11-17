@@ -15,6 +15,7 @@ import {
 import { outcomeExecutionStatusLabel } from '@/lib/daily-plan-execution';
 import { todayReportDate } from '@/lib/report-date';
 import { DailyPlanActiveExecution } from '@/components/DailyPlanExecution';
+import SavedDailyPlanChecklist from '@/components/SavedDailyPlanChecklist';
 import { nextMelbourneWorkDate } from '@/lib/daily-plan-carry-forward-suggestions';
 
 type DailyPlanPanelProps = {
@@ -193,6 +194,11 @@ export function DailyPlanView({
             ))}
           </ul>
         </div>
+      )}
+
+      {orgSlug && jobId && onPlanUpdated && (
+        <SavedDailyPlanChecklist plan={plan} orgSlug={orgSlug} jobId={jobId}
+          onPlanUpdated={onPlanUpdated} />
       )}
 
       {plan.materials.length > 0 && (
