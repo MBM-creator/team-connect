@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseChecklistDecision } from './route';
+import { parseChecklistDecision } from '@/lib/checklist-decision';
 
 describe('saved daily-plan checklist decisions', () => {
   it('accepts four statuses', () => {
