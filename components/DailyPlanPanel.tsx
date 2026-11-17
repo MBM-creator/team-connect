@@ -66,10 +66,16 @@ export function DailyPlanView({
 
   return (
     <div className="mt-4 space-y-4 text-sm text-gray-800">
+      {plan.status === 'draft' && (
+        <p role="status" className="rounded-lg border border-sc-euca/30 bg-sc-euca-tint p-3 text-sm font-medium text-gray-900">
+          This Daily Plan is saved in Team Connect for {formatWorkDateLabel(plan.workDate)}.
+          {ui.showStartDay ? ' You can press Start Day now.' : ui.isFutureDraft ? ' Return on the work date to press Start Day.' : ' Its scheduled work date has passed.'}
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Status</p>
-          <p className="mt-0.5 font-medium text-gray-900">{ui.statusLabel}</p>
+          <p className="mt-0.5 font-medium text-gray-900">{plan.status === 'draft' ? 'Saved — awaiting Start Day' : ui.statusLabel}</p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Work date</p>
