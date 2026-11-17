@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DailyPlanApi } from '@/lib/daily-plan-shared';
 import { AustralianDatePicker } from '@/components/AustralianDatePicker';
 import { suggestChecklistItems, type Suggestion } from '@/lib/smart-checklist';
+import type { LearnedChecklistSuggestion } from '@/lib/smart-checklist-learning';
 import {
   DAILY_PLAN_CARRY_FORWARD_ADDED_MESSAGE,
   DAILY_PLAN_DUPLICATE_CARRY_FORWARD_MESSAGE,
@@ -142,11 +143,64 @@ export function DailyPlanForm({
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
 
-  // Suggestions are based on the actual outcomes and kept out of the plan until accepted.
-  const smartSuggestions = useMemo(() => suggestChecklistItems(
-    form.outcomes.map((outcome) => outcome.description).join(' '),
-    [...form.materials.map((item) => item.description), ...form.equipment.map((item) => item.description)],
-  ), [form.outcomes, form.materials, form.equipment]);
+  // Combine deterministic starter suggestions with prior explicit decisions
+  // from comparable work on other jobs. Nothing is auto-added.
+  const activityText = form.outcomes.map((outcome) => outcome.description).join(' ').trim();
+  const [learnedSuggestions, setLearnedSuggestions] = useState<LearnedChecklistSuggestion[]>([]);
+  const [learningLoading, setLearningLoading] = useState(false);
+  const [learningError, setLearningError] = useState(false);
+  useEffect(() => {
+    if (!orgSlug || !jobId || !form.workDate || !activityText) {
+      setLearnedSuggestions([]);
+      setLearningError(false);
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    setLearningLoading(true);
+    setLearningError(false);
+    const timer = window.setTimeout(async () => {
+      const query = new URLSearchParams({
+        orgSlug, workDate: form.workDate, activity: activityText.slice(0, 1200),
+      });
+      try {
+        const response = await fetch(
+          `/api/jobs/${encodeURIComponent(jobId)}/daily-plans/checklist-learning?${query.toString()}`,
+          { signal: controller.signal },
+        );
+        const data = await response.json() as { ok?: boolean; suggestions?: LearnedChecklistSuggestion[] };
+        if (!response.ok || !data.ok) throw new Error('Learning history unavailable');
+        if (!cancelled) setLearnedSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+      } catch {
+        if (!cancelled) {
+          setLearnedSuggestions([]);
+          setLearningError(true);
+        }
+      } finally {
+        if (!cancelled) setLearningLoading(false);
+      }
+    }, 450);
+    return () => { cancelled = true; window.clearTimeout(timer); controller.abort(); };
+  }, [orgSlug, jobId, form.workDate, activityText]);
+
+  const smartSuggestions = useMemo(() => {
+    const existing = new Set([...form.materials, ...form.equipment]
+      .map(item => item.description.trim().toLowerCase()));
+    const standards = suggestChecklistItems(activityText, [...existing]);
+    const merged = new Map<string, LearnedChecklistSuggestion>();
+    for (const standard of standards) {
+      merged.set(`${standard.category}:${standard.description.toLowerCase()}`, {
+        ...standard, learning: 'standard', loadedJobs: 0, notRequiredJobs: 0,
+      });
+    }
+    for (const learned of learnedSuggestions) {
+      if (existing.has(learned.description.trim().toLowerCase())) continue;
+      merged.set(`${learned.category}:${learned.description.trim().toLowerCase()}`, learned);
+    }
+    return [...merged.values()].sort((a, b) =>
+      Number(a.learning === 'often_not_required') - Number(b.learning === 'often_not_required') ||
+      b.loadedJobs - a.loadedJobs || a.description.localeCompare(b.description));
+  }, [activityText, form.materials, form.equipment, learnedSuggestions]);
   const [reviewWarning, setReviewWarning] = useState(false);
 
   function addSmartSuggestion(suggestion: Suggestion) {
@@ -699,8 +753,12 @@ export function DailyPlanForm({
       <section aria-label="Smart tools and materials review" className="rounded-lg border border-sc-euca/30 bg-sc-euca-tint p-4">
         <h2 className="text-sm font-semibold text-gray-900">Smart Checklist — possible missing items</h2>
         <p className="mt-1 text-sm text-gray-700">
-          Based on the planned outcomes. Review these before saving. Suggestions are not added automatically.
+          Based on the planned outcomes and your decisions on comparable jobs. Nothing is added automatically.
         </p>
+        {learningLoading && <p className="mt-2 text-xs text-gray-600">Checking previous jobs…</p>}
+        {learningError && <p className="mt-2 text-xs text-amber-800">
+          Previous job history could not be loaded. Standard suggestions are still available.
+        </p>}
         {smartSuggestions.length === 0 ? (
           <p className="mt-3 text-sm text-gray-700">
             No additional suggestions for these activities. Check your list for anything job-specific.
@@ -711,6 +769,8 @@ export function DailyPlanForm({
               <li key={suggestion.description} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{suggestion.description}</p>
+                  {suggestion.learning === 'previously_loaded' && <p className="text-xs font-medium text-sc-euca-hover">Previously loaded on similar jobs</p>}
+                  {suggestion.learning === 'often_not_required' && <p className="text-xs font-medium text-amber-800">Often not required — review before adding</p>}
                   <p className="text-xs text-gray-600">{suggestion.why}</p>
                 </div>
                 <button type="button" className={btnPrimary} disabled={submitting}
