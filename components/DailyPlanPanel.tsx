@@ -8,8 +8,6 @@ import type { DailyPlanApi } from '@/lib/daily-plan-shared';
 import {
   DAILY_PLAN_EMPTY_MESSAGE,
   DAILY_PLAN_DAY_STARTED_MESSAGE,
-  DAILY_PLAN_START_CONFIRM_BODY,
-  DAILY_PLAN_START_CONFIRM_TITLE,
   getDailyPlanUiState,
 } from '@/lib/daily-plan-shared';
 import { outcomeExecutionStatusLabel } from '@/lib/daily-plan-execution';
@@ -322,7 +320,6 @@ export function DailyPlanStartDayControls({
   onStarted,
   onConflict,
 }: DailyPlanStartDayControlsProps) {
-  const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -353,7 +350,6 @@ export function DailyPlanStartDayControls({
         throw new Error(typeof data.message === 'string' ? data.message : 'Failed to start day');
       }
 
-      setConfirming(false);
       onStarted(data.plan);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start day');
@@ -362,71 +358,21 @@ export function DailyPlanStartDayControls({
     }
   }
 
-  if (!confirming) {
-    return (
-      <div className="mt-4 space-y-2">
-        {error && (
-          <div
-            role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
-          >
-            {error}
-          </div>
-        )}
-        <button
-          type="button"
-          disabled={starting}
-          onClick={() => setConfirming(true)}
-          className="block w-full min-h-[44px] rounded-lg bg-sc-euca px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-sc-euca-hover disabled:cursor-not-allowed disabled:opacity-60 sm:inline-block sm:w-auto"
-        >
-          Start Day
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div
-      role="group"
-      aria-labelledby="start-day-confirm-title"
-      className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4"
-    >
-      <div>
-        <p id="start-day-confirm-title" className="text-sm font-semibold text-gray-900">
-          {DAILY_PLAN_START_CONFIRM_TITLE}
-        </p>
-        <p className="mt-1 text-sm text-gray-700">{DAILY_PLAN_START_CONFIRM_BODY}</p>
-      </div>
+    <div className="mt-4 space-y-2">
       {error && (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
-        >
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           {error}
         </div>
       )}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <button
-          type="button"
-          disabled={starting}
-          onClick={() => {
-            if (starting) return;
-            setConfirming(false);
-            setError(null);
-          }}
-          className="min-h-[44px] rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          disabled={starting}
-          onClick={() => void handleStartDay()}
-          className="min-h-[44px] rounded-lg bg-sc-euca px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-sc-euca-hover disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {starting ? 'Starting…' : 'Start Day'}
-        </button>
-      </div>
+      <button
+        type="button"
+        disabled={starting}
+        onClick={() => void handleStartDay()}
+        className="block w-full min-h-[44px] rounded-lg bg-sc-euca px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-sc-euca-hover disabled:cursor-not-allowed disabled:opacity-60 sm:inline-block sm:w-auto"
+      >
+        {starting ? 'Starting day…' : "Let's start the day"}
+      </button>
     </div>
   );
 }
