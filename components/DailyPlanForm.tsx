@@ -207,10 +207,31 @@ export function DailyPlanForm({
     !dismissedSuggestions.includes(`${suggestion.category}:${suggestion.description.trim().toLowerCase()}`)
   );
 
-  function dismissSmartSuggestion(suggestion: Suggestion) {
+  const [feedbackError, setFeedbackError] = useState('');
+  async function dismissSmartSuggestion(suggestion: Suggestion) {
     const key = `${suggestion.category}:${suggestion.description.trim().toLowerCase()}`;
     setDismissedSuggestions(previous => previous.includes(key) ? previous : [...previous, key]);
     setReviewWarning(false);
+    setFeedbackError('');
+    if (!orgSlug || !jobId || !activityText || !form.workDate) {
+      setFeedbackError('This suggestion was hidden, but its learning feedback could not be saved.');
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/jobs/${encodeURIComponent(jobId)}/daily-plans/checklist-learning?orgSlug=${encodeURIComponent(orgSlug)}`,
+        {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workDate: form.workDate, activity: activityText.slice(0, 1200),
+            category: suggestion.category, description: suggestion.description,
+          }),
+        },
+      );
+      if (!response.ok) throw new Error('Unable to record suggestion feedback');
+    } catch {
+      setFeedbackError('Suggestion hidden, but learning feedback could not be saved. Please retry later.');
+    }
   }
 
   function addSmartSuggestion(suggestion: Suggestion) {
@@ -765,6 +786,7 @@ export function DailyPlanForm({
         <p className="mt-1 text-sm text-gray-700">
           Based on the planned outcomes and your decisions on comparable jobs. Nothing is added automatically. Select Not needed to dismiss an irrelevant suggestion for this editing session.
         </p>
+        {feedbackError && <p role="alert" className="mt-2 text-xs text-red-700">{feedbackError}</p>}
         {learningLoading && <p className="mt-2 text-xs text-gray-600">Checking previous jobs…</p>}
         {learningError && <p className="mt-2 text-xs text-amber-800">
           Previous job history could not be loaded. Standard suggestions are still available.
