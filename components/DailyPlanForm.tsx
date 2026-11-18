@@ -201,7 +201,17 @@ export function DailyPlanForm({
       Number(a.learning === 'often_not_required') - Number(b.learning === 'often_not_required') ||
       b.loadedJobs - a.loadedJobs || a.description.localeCompare(b.description));
   }, [activityText, form.materials, form.equipment, learnedSuggestions]);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([]);
   const [reviewWarning, setReviewWarning] = useState(false);
+  const visibleSmartSuggestions = smartSuggestions.filter(suggestion =>
+    !dismissedSuggestions.includes(`${suggestion.category}:${suggestion.description.trim().toLowerCase()}`)
+  );
+
+  function dismissSmartSuggestion(suggestion: Suggestion) {
+    const key = `${suggestion.category}:${suggestion.description.trim().toLowerCase()}`;
+    setDismissedSuggestions(previous => previous.includes(key) ? previous : [...previous, key]);
+    setReviewWarning(false);
+  }
 
   function addSmartSuggestion(suggestion: Suggestion) {
     setForm(prev => {
@@ -387,8 +397,8 @@ export function DailyPlanForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (submitting) return;
-        if (smartSuggestions.length > 0 && !window.confirm(
-          `Smart Checklist found ${smartSuggestions.length} possible missing item(s). ` +
+        if (visibleSmartSuggestions.length > 0 && !window.confirm(
+          `Smart Checklist found ${visibleSmartSuggestions.length} possible missing item(s). ` +
           'Select Cancel to review and add what you need, or OK to save the plan without them.'
         )) {
           setReviewWarning(true);
@@ -753,19 +763,19 @@ export function DailyPlanForm({
       <section aria-label="Smart tools and materials review" className="rounded-lg border border-sc-euca/30 bg-sc-euca-tint p-4">
         <h2 className="text-sm font-semibold text-gray-900">Smart Checklist — possible missing items</h2>
         <p className="mt-1 text-sm text-gray-700">
-          Based on the planned outcomes and your decisions on comparable jobs. Nothing is added automatically.
+          Based on the planned outcomes and your decisions on comparable jobs. Nothing is added automatically. Select Not needed to dismiss an irrelevant suggestion for this editing session.
         </p>
         {learningLoading && <p className="mt-2 text-xs text-gray-600">Checking previous jobs…</p>}
         {learningError && <p className="mt-2 text-xs text-amber-800">
           Previous job history could not be loaded. Standard suggestions are still available.
         </p>}
-        {smartSuggestions.length === 0 ? (
+        {visibleSmartSuggestions.length === 0 ? (
           <p className="mt-3 text-sm text-gray-700">
             No additional suggestions for these activities. Check your list for anything job-specific.
           </p>
         ) : (
           <ul className="mt-3 space-y-2">
-            {smartSuggestions.map((suggestion) => (
+            {visibleSmartSuggestions.map((suggestion) => (
               <li key={suggestion.description} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{suggestion.description}</p>
@@ -773,10 +783,17 @@ export function DailyPlanForm({
                   {suggestion.learning === 'often_not_required' && <p className="text-xs font-medium text-amber-800">Often not required — review before adding</p>}
                   <p className="text-xs text-gray-600">{suggestion.why}</p>
                 </div>
-                <button type="button" className={btnPrimary} disabled={submitting}
-                  onClick={() => addSmartSuggestion(suggestion)}>
-                  + Add to {suggestion.category === 'material' ? 'materials' : 'equipment'}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={btnPrimary} disabled={submitting}
+                    onClick={() => addSmartSuggestion(suggestion)}>
+                    + Add to {suggestion.category === 'material' ? 'materials' : 'equipment'}
+                  </button>
+                  <button type="button" className={btnDanger} disabled={submitting}
+                    aria-label={`Not needed: ${suggestion.description}`}
+                    onClick={() => dismissSmartSuggestion(suggestion)}>
+                    Not needed
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
