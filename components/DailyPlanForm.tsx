@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DailyPlanApi } from '@/lib/daily-plan-shared';
 import { AustralianDatePicker } from '@/components/AustralianDatePicker';
 import { suggestChecklistItems, type Suggestion } from '@/lib/smart-checklist';
-import type { LearnedChecklistSuggestion } from '@/lib/smart-checklist-learning';
+import { shouldDisplayLearnedSuggestion, type LearnedChecklistSuggestion } from '@/lib/smart-checklist-learning';
 import {
   DAILY_PLAN_CARRY_FORWARD_ADDED_MESSAGE,
   DAILY_PLAN_DUPLICATE_CARRY_FORWARD_MESSAGE,
@@ -190,17 +190,17 @@ export function DailyPlanForm({
     const merged = new Map<string, LearnedChecklistSuggestion>();
     for (const standard of standards) {
       merged.set(`${standard.category}:${standard.description.toLowerCase()}`, {
-        ...standard, learning: 'standard', loadedJobs: 0, notRequiredJobs: 0,
+        ...standard, learning: 'standard', loadedJobs: 0, notRequiredJobs: 0, notRequiredStreak: 0,
       });
     }
     for (const learned of learnedSuggestions) {
       if (existing.has(learned.description.trim().toLowerCase())) continue;
       merged.set(`${learned.category}:${learned.description.trim().toLowerCase()}`, learned);
     }
-    return [...merged.values()].sort((a, b) =>
+    return [...merged.values()].filter(suggestion => shouldDisplayLearnedSuggestion(suggestion, jobId ?? '', form.workDate)).sort((a, b) =>
       Number(a.learning === 'often_not_required') - Number(b.learning === 'often_not_required') ||
       b.loadedJobs - a.loadedJobs || a.description.localeCompare(b.description));
-  }, [activityText, form.materials, form.equipment, learnedSuggestions]);
+  }, [activityText, form.materials, form.equipment, learnedSuggestions, jobId, form.workDate]);
   const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([]);
   const [reviewWarning, setReviewWarning] = useState(false);
   const visibleSmartSuggestions = smartSuggestions.filter(suggestion =>
@@ -784,7 +784,7 @@ export function DailyPlanForm({
       <section aria-label="Smart tools and materials review" className="rounded-lg border border-sc-euca/30 bg-sc-euca-tint p-4">
         <h2 className="text-sm font-semibold text-gray-900">Smart Checklist — possible missing items</h2>
         <p className="mt-1 text-sm text-gray-700">
-          Based on the planned outcomes and your decisions on comparable jobs. Nothing is added automatically. Select Not needed to dismiss an irrelevant suggestion for this editing session.
+          Based on the planned outcomes and your decisions on comparable jobs. Nothing is added automatically. Choose Not required to decline an item. That decision helps improve recommendations for future jobs.
         </p>
         {feedbackError && <p role="alert" className="mt-2 text-xs text-red-700">{feedbackError}</p>}
         {learningLoading && <p className="mt-2 text-xs text-gray-600">Checking previous jobs…</p>}
@@ -811,9 +811,9 @@ export function DailyPlanForm({
                     + Add to {suggestion.category === 'material' ? 'materials' : 'equipment'}
                   </button>
                   <button type="button" className={btnDanger} disabled={submitting}
-                    aria-label={`Not needed: ${suggestion.description}`}
+                    aria-label={`Not required: ${suggestion.description}`}
                     onClick={() => dismissSmartSuggestion(suggestion)}>
-                    Not needed
+                    Not required
                   </button>
                 </div>
               </li>
