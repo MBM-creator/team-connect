@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  learnChecklistSuggestions, similarActivity, type ChecklistLearningObservation,
+  learnChecklistSuggestions, similarActivity, shouldDisplayLearnedSuggestion, type ChecklistLearningObservation,
 } from './smart-checklist-learning';
 
 const observation = (
@@ -57,14 +57,45 @@ describe('cross-job Smart Checklist learning', () => {
     expect(result.some(item => item.description === 'Diamond blade')).toBe(false);
   });
 
-  it('downgrades repeatedly not-required standard suggestions instead of suppressing them', () => {
+  it('starts tapering suggestions after three consecutive not-required decisions', () => {
+    const data = [
+      observation('a', 'not_required', 'Wet saw', '2026-11-10'),
+      observation('b', 'not_required', 'Wet saw', '2026-11-11'),
+      observation('c', 'not_required', 'Wet saw', '2026-11-12'),
+    ];
+    const two = learnChecklistSuggestions('Lay bluestone paving', [], data.slice(0, 2), 'new-job');
+    expect(two.find(item => item.description === 'Wet saw')).toMatchObject({
+      learning: 'standard', notRequiredStreak: 2,
+    });
+    const three = learnChecklistSuggestions('Lay bluestone paving', [], data, 'new-job');
+    const wetSaw = three.find(item => item.description === 'Wet saw')!;
+    expect(wetSaw).toMatchObject({ learning: 'often_not_required', notRequiredStreak: 3 });
+    expect(Array.from({length: 80}, (_, n) => shouldDisplayLearnedSuggestion(
+      wetSaw, `job-${n}`, '2026-11-19',
+    )).filter(Boolean).length).toBeLessThan(40);
+  });
+
+  it('resets the consecutive rejection streak when an item is loaded', () => {
     const result = learnChecklistSuggestions('Lay bluestone paving', [], [
-      observation('a', 'not_required', 'Wet saw'),
-      observation('b', 'not_required', 'Wet saw'),
+      observation('a', 'not_required', 'Wet saw', '2026-11-10'),
+      observation('b', 'not_required', 'Wet saw', '2026-11-11'),
+      observation('c', 'loaded', 'Wet saw', '2026-11-12'),
+      observation('d', 'not_required', 'Wet saw', '2026-11-13'),
     ], 'new-job');
     expect(result.find(item => item.description === 'Wet saw')).toMatchObject({
-      learning: 'often_not_required', notRequiredJobs: 2,
+      learning: 'previously_loaded', notRequiredStreak: 1, loadedJobs: 1,
     });
+  });
+
+  it('makes reminder frequency increasingly sparse after continued rejection', () => {
+    const sample = (streak: number) => Array.from({ length: 300 }, (_, n) =>
+      shouldDisplayLearnedSuggestion({
+        category: 'tool', description: 'Wet saw', notRequiredStreak: streak,
+      }, `job-${n}`, '2026-11-19')).filter(Boolean).length;
+    expect(sample(2)).toBe(300);
+    expect(sample(3)).toBeGreaterThan(sample(6));
+    expect(sample(6)).toBeGreaterThan(sample(10));
+    expect(sample(10)).toBeGreaterThan(0);
   });
 
   it('keeps other tools suggestible and does not auto-add already selected items', () => {
