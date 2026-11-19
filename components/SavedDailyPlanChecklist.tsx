@@ -16,7 +16,6 @@ const choices: { value: DailyPlanChecklistStatus; label: string }[] = [
   { value: 'pending', label: 'Pending' },
   { value: 'loaded', label: 'Loaded' },
   { value: 'not_required', label: 'Not required' },
-  { value: 'not_required_for_job', label: 'Not required for this particular job' },
 ];
 const draftKey = (kind: Kind, id: string) => `${kind}:${id}`;
 
@@ -171,7 +170,7 @@ export default function SavedDailyPlanChecklist({
           </div>
           <label className="block text-sm">Loading status
             <select className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900"
-              value={selection.status} disabled={saving || plan.status === 'completed'}
+              value={selection.status === 'not_required_for_job' ? 'not_required' : selection.status} disabled={saving || plan.status === 'completed'}
               onChange={event => choose(kind, item, event.target.value as DailyPlanChecklistStatus)}>
               {choices.map(choice => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
             </select>
@@ -208,7 +207,7 @@ export default function SavedDailyPlanChecklist({
     <h2 className="text-base font-semibold text-gray-900">Tools and materials loading checklist</h2>
     <p className="text-sm text-gray-700">
       {unresolved === 0 ? 'All items selected as resolved.' : `${unresolved} item(s) pending.`}
-      {' '}Choose each status, then save all changes at the bottom. Job-specific exclusions require a reason.
+      {' '}Choose Loaded or Not required for each item, then save all changes at the bottom.
     </p>
     {renderGroup('equipment', 'Tools and equipment', plan.equipment)}
     {renderGroup('materials', 'Materials', plan.materials)}
