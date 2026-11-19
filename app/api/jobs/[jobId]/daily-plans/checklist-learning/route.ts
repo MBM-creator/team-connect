@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const [outcomes, equipment, materials, dismissed] = await Promise.all([
     supabaseAdmin.from('job_daily_plan_outcomes').select('daily_plan_id,description').in('daily_plan_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
     supabaseAdmin.from('job_daily_plan_equipment')
-      .select('daily_plan_id,description,checklist_status').in('daily_plan_id', ids)
+      .select('daily_plan_id,description,checklist_status').in('daily_plan_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
       .neq('checklist_status', 'pending'),
     supabaseAdmin.from('job_daily_plan_materials')
       .select('daily_plan_id,description,checklist_status').in('daily_plan_id', ids)
@@ -83,8 +83,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       description: record.description, status: 'not_required',
     });
   }
-  const suggestions = learnChecklistSuggestions(activity, [], observations, jobId)
-    .filter(suggestion => suggestion.learning !== 'standard');
+  const suggestions = learnChecklistSuggestions(activity, [], observations, jobId);
   return NextResponse.json({
     ok: true, suggestions,
     comparedJobs: new Set(observations.map(item => item.jobId)).size,
