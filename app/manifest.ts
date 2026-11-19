@@ -3,8 +3,7 @@ import { APP_NAME } from "@/lib/app-branding";
 
 // PWA manifest only; no service worker is registered. If a SW is added later,
 // implement "new version available" refresh (skipWaiting/claim + controllerchange).
-// TODO: Replace placeholder icons with real Made By Mobbs logo.
-// Paths: public/icons/icon-192.png (192×192), public/icons/icon-512.png (512×512).
+// Lettermark icons are generated as PNGs for Android and browser installs.
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -13,17 +12,17 @@ export default function manifest(): MetadataRoute.Manifest {
     description: `${APP_NAME} for Made By Mobbs job planning and updates`,
     start_url: "/t/madebymobbs/jobs",
     display: "standalone",
-    background_color: "#0F172A",
-    theme_color: "#0F172A",
+    background_color: "#003923",
+    theme_color: "#003923",
     icons: [
       {
-        src: "/icons/icon-192.png",
+        src: "/icons/192",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/icon-512.png",
+        src: "/icons/512",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
