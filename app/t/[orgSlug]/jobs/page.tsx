@@ -15,6 +15,7 @@ import {
 } from '@/lib/cc-client-display';
 import {
   buildJobListRowModel,
+  ccServiceTitle,
   clearJobsListFilters,
   defaultJobsStatusFilter,
   filterJobsByTab,
@@ -464,7 +465,7 @@ export default function JobsListPage() {
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search client, project, suburb…"
+              placeholder="Search client, service, suburb…"
               className={`h-11 w-full rounded-lg border border-sc-border bg-sc-surface py-2 pl-10 pr-3 text-sm text-sc-text placeholder:text-sc-text-secondary/70 ${CONTROL_FOCUS}`}
             />
           </div>
@@ -544,7 +545,7 @@ export default function JobsListPage() {
                         <LifecycleStatusChip status={row.status} />
                       </div>
                       {row.projectTitle && (
-                        <p className="mt-0.5 truncate text-[14px] leading-snug text-sc-text">
+                        <p className="mt-0.5 break-words text-[14px] font-medium leading-snug text-sc-text">
                           {row.projectTitle}
                         </p>
                       )}
@@ -561,11 +562,11 @@ export default function JobsListPage() {
               const phone = ccClientPhone(project);
               const location = siteLocationForList(project.site_address);
               const clientName = ccClientDisplayName(project);
-              const title =
+              const title = ccServiceTitle(project) ?? (
                 project.project_title?.trim() &&
                 normalise(project.project_title) !== normalise(clientName)
                   ? project.project_title.trim()
-                  : null;
+                  : null);
               return (
                 <li key={project.project_id}>
                   <button
@@ -583,7 +584,7 @@ export default function JobsListPage() {
                         <LifecycleStatusChip status={project.status} />
                       </div>
                       {title && (
-                        <p className="mt-0.5 truncate text-[14px] leading-snug text-sc-text">{title}</p>
+                        <p className="mt-0.5 break-words text-[14px] font-medium leading-snug text-sc-text">{title}</p>
                       )}
                       <JobRowMeta
                         items={[location, formatAustralianMobileDisplay(phone) ?? phone]}

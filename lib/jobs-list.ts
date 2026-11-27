@@ -70,9 +70,14 @@ export function normaliseSearchText(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+export function ccServiceTitle(project: Partial<Pick<CcProject, 'sections'>> | null): string | null {
+  const names = (project?.sections ?? []).map((section) => section.name.trim()).filter(Boolean);
+  return Array.from(new Set(names)).join(' · ') || null;
+}
+
 export function jobSearchHaystack(
   job: JobsListJob,
-  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'project_id' | 'quote_id' | 'cc_job_number'> | null
+  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'project_id' | 'quote_id' | 'cc_job_number'> & Partial<Pick<CcProject, 'sections'>> | null
 ): string {
   const details = clientFacingDetails({
     project,
@@ -87,6 +92,7 @@ export function jobSearchHaystack(
     job.cc_project_title_snapshot,
     job.name,
     project?.project_title,
+    ccServiceTitle(project),
     job.site_location,
     details.address,
     job.cc_site_address_snapshot,
@@ -97,7 +103,7 @@ export function jobSearchHaystack(
 export function jobMatchesSearch(
   job: JobsListJob,
   query: string,
-  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'project_id' | 'quote_id' | 'cc_job_number'> | null
+  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'project_id' | 'quote_id' | 'cc_job_number'> & Partial<Pick<CcProject, 'sections'>> | null
 ): boolean {
   const needle = normaliseSearchText(query);
   if (!needle) return true;
@@ -108,7 +114,7 @@ export function projectMatchesSearch(project: CcProject, query: string): boolean
   const needle = normaliseSearchText(query);
   if (!needle) return true;
   const haystack = normaliseSearchText(
-    [project.cc_job_number, project.client_name, project.project_title, project.site_address, siteLocationForList(project.site_address)]
+    [project.cc_job_number, project.client_name, project.project_title, ccServiceTitle(project), project.site_address, siteLocationForList(project.site_address)]
       .filter(Boolean)
       .join(' ')
   );
@@ -169,7 +175,7 @@ export function jobMatchesStatusFilter(
 export function buildJobListRowModel(
   job: JobsListJob,
   orgSlug: string,
-  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'project_id' | 'quote_id' | 'cc_job_number' | 'status'> | null
+  project: Pick<CcProject, 'client_name' | 'client_contact' | 'site_address' | 'project_title' | 'project_id' | 'quote_id' | 'cc_job_number' | 'status'> & Partial<Pick<CcProject, 'sections'>> | null
 ): JobListRowModel {
   const details = clientFacingDetails({
     project,
@@ -190,7 +196,7 @@ export function buildJobListRowModel(
     id: job.id,
     clientName: details.name,
     jobNumber: canonicalJobNumber(job, project),
-    projectTitle: showTitle,
+    projectTitle: ccServiceTitle(project) ?? showTitle,
     location: job.site_location ?? siteLocationForList(details.address),
     phone: details.phone,
     status: project?.status ?? null,
