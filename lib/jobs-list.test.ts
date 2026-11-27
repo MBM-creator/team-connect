@@ -296,3 +296,18 @@ describe('jobs list — status presentation labels', () => {
     expect(formatCcStatusLabel('   ')).toBeNull();
   });
 });
+
+describe('jobs list — service card labels', () => {
+  it('distinguishes same-client jobs and searches service names without changing links', () => {
+    const a = makeProject({ project_id: 'p-a', client_name: 'Same Client', project_title: 'Same Client', sections: [{ id: 's-a', name: 'Rear fencing', trade: 'fencing' }] });
+    const b = makeProject({ project_id: 'p-b', client_name: 'Same Client', project_title: 'Same Client', sections: [{ id: 's-b', name: 'Outdoor kitchen', trade: 'other' }] });
+    const jobA = makeJob({ id: 'job-a', cc_project_id: 'p-a' });
+    const jobB = makeJob({ id: 'job-b', cc_project_id: 'p-b' });
+    expect(buildJobListRowModel(jobA, 'mbm', a).projectTitle).toBe('Rear fencing');
+    expect(buildJobListRowModel(jobB, 'mbm', b).projectTitle).toBe('Outdoor kitchen');
+    expect(buildJobListRowModel(jobB, 'mbm', b).href).toBe('/t/mbm/jobs/job-b');
+    expect(jobMatchesSearch(jobA, 'rear fencing', a)).toBe(true);
+    expect(jobMatchesSearch(jobB, 'rear fencing', b)).toBe(false);
+    expect(projectMatchesSearch(b, 'outdoor kitchen')).toBe(true);
+  });
+});
